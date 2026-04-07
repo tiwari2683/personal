@@ -1,0 +1,120 @@
+@import url('https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,300;0,400;0,500;0,600;0,700;1,300;1,400;1,500;1,600;1,700&family=DM+Sans:ital,wght@0,100;0,200;0,300;0,400;0,500;0,600;0,700;0,800;0,900;0,1000;1,100;1,200;1,300;1,400;1,500;1,600;1,700&family=Playfair+Display:ital,wght@0,400..900;1,400..900&display=swap');
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  --aurora-rose-gold: hsl(330, 70%, 95%);
+  --aurora-champagne: hsl(45, 100%, 90%);
+  --aurora-mauve: hsl(300, 30%, 90%);
+  --liquid-gold-start: #d4af37;
+  --liquid-gold-mid: #f9e29c;
+  --liquid-gold-end: #b8860b;
+  --royal-peach: hsl(25, 100%, 94%);
+  --aurora-mint: hsl(160, 100%, 94%);
+  
+  --font-heading: 'Cormorant Garamond', serif;
+  --font-body: 'DM Sans', sans-serif;
+  --font-proposal: 'Playfair Display', serif;
+}
+
+html, body, #root {
+  height: 100%;
+  width: 100%;
+  margin: 0;
+  padding: 0;
+  overflow: hidden;
+}
+
+body {
+  background: var(--aurora-rose-gold);
+  color: #333;
+  overflow: hidden;
+  font-family: var(--font-body);
+}
+
+/* THE "LIQUID GOLD" SHIMMER */
+.liquid-gold-text {
+  background: linear-gradient(
+    to right, 
+    var(--liquid-gold-start) 20%, 
+    var(--liquid-gold-mid) 40%, 
+    var(--liquid-gold-mid) 60%, 
+    var(--liquid-gold-start) 80%
+  );
+  background-size: 200% auto;
+  color: #000;
+  background-clip: text;
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  animation: shine 5s linear infinite;
+}
+
+@keyframes shine {
+  to {
+    background-position: 200% center;
+  }
+}
+
+/* THE "PRINCESS" CANVAS FOUNDATION */
+.cinematic-canvas-container {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100vw;
+  height: 100vh;
+  z-index: -1;
+  pointer-events: none;
+}
+
+/* LIQUID MOTION FOR UI ELEMENTS */
+.fade-up-breath {
+  opacity: 0;
+  transform: translateY(20px);
+  animation: fadeUpBreath 3s cubic-bezier(0.4, 0, 0.2, 1) forwards;
+}
+
+@keyframes fadeUpBreath {
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* NO SCROLLBAR FOR CINEMATIC EFFECT */
+::-webkit-scrollbar {
+  display: none;
+}
+
+@keyframes aurora-shimmer {
+  0% { background-position: 0% 50%; }
+  50% { background-position: 100% 50%; }
+  100% { background-position: 0% 50%; }
+}
+
+.bg-aurora {
+  background: linear-gradient(-45deg, var(--royal-peach), var(--aurora-mint), var(--aurora-rose-gold), var(--aurora-mint));
+  background-size: 400% 400%;
+  animation: aurora-shimmer 7.5s ease infinite;
+}
+
+.bg-creepers {
+  background-image: url('/assets/creepers_solid.png');
+  background-size: cover;
+  background-position: center;
+  background-repeat: no-repeat;
+  opacity: 1; /* Solid background now, no transparency needed */
+}
+
+.bg-palace {
+  background-image: url('/assets/palace_solid.png');
+  background-size: cover;
+  background-position: center;
+  background-repeat: no-repeat;
+  opacity: 1;
+}
+
+.title-glow {
+  text-shadow: 0 0 15px rgba(255, 255, 255, 0.8), 0 0 5px rgba(212, 175, 55, 0.2);
+}

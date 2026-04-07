@@ -1,0 +1,62 @@
+────────────────────────────────────────
+PERSONAL DETAILS FOR [NAME]'S EXPERIENCE
+────────────────────────────────────────
+
+Please fill in the details below. This information will be the 
+beating heart of the "Princess-worthy" experience. Once filled, 
+I will use these to populate the `config.js` and build her world.
+
+1. HER NAME:
+   (The name she loves to hear you say)
+
+2. HER "SOUL" COLOR:
+   (The color she feels most like herself in - e.g., Moonlit Ivory, 
+   Deep Mauve, Rose Gold, Champagne)
+
+3. HER FAVORITE FLOWER:
+   (Rose, Jasmine, Sunflower, Lily, etc. - this determines the 
+   petal physics in Act 5)
+
+4. THE 5 PHOTOS:
+   (Do you have 5 photos of you both that you love? Please 
+   place them in the `/public/memories/` folder named 1.webp 
+   to 5.webp once the project is initialized)
+
+5. THE SONG:
+   (The song that belongs to your relationship. Please place 
+   the mp3/wav in `/public/audio/song.mp3`)
+
+6. A SPECIAL PLACE:
+   (A place that is special to you both)
+
+7. FIRST MEMORY TOGETHER:
+   (Describe the moment in 1-2 sentences)
+
+8. 3 WORDS THAT DESCRIBE HER:
+   (e.g., Radiant, Kind, Resilient)
+
+9. THE THING SHE DOES THAT YOU LOVE MOST:
+   (A specific detail only you notice)
+
+10. AN INSIDE JOKE OR PHRASE:
+    (Something that will make her laugh or smile instantly)
+
+11. THE PROPOSAL SENTENCE:
+    (The exact words you will say)
+
+12. YOUR FUTURE SHARED LAST NAME:
+    (For "Happy Birthday, future [NAME]")
+
+13. THE HANDOFF RITUAL:
+    (How will she receive this? Physical card with QR, phone 
+    handed warm, or a midnight link?)
+
+14. HER LOVE LANGUAGE:
+    (Words of Affirmation, Quality Time, Gifts, etc. - this 
+    helps me pace the animations)
+
+────────────────────────────────────────
+FINISHED?
+────────────────────────────────────────
+Just reply with "Filled" once you've considered these, or 
+paste the answers here.
