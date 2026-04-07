@@ -85,14 +85,14 @@ const SakuraSwarm = ({ count = 250 }) => {
     return geo;
   }, []);
 
-  const particles = useMemo(() => Array.from({ length: count }, (_, i) => ({
+  const particles = useMemo(() => Array.from({ length: 150 }, (_, i) => ({
     id: i * 0.1,
     speed: 0.15 + Math.random() * 0.2,
     turbulence: 1 + Math.random() * 3,
     xOffset: (Math.random() - 0.5) * 25,
     yOffset: Math.random() * 25,
     zOffset: 5 - Math.random() * 35, // Spread far back into the fog
-  })), [count]);
+  })), []);
 
   return (
     <Instances geometry={petalGeo}>
@@ -434,7 +434,17 @@ const Act2MemoryGarden = ({ onComplete }) => {
       
       {/* ================= 3D WORLD RENDERER ================= */}
       <div style={{ position: 'absolute', inset: 0, zIndex: 0 }}>
-        <Canvas camera={{ position: [0, 25, 10], fov: 50 }} dpr={[1, 1.5]} onPointerMissed={() => setActiveId(null)}>
+        <Canvas 
+          camera={{ position: [0, 25, 10], fov: 50 }} 
+          dpr={[1, 1.5]} 
+          onPointerMissed={() => setActiveId(null)}
+          gl={{ 
+            antialias: false, 
+            stencil: false, 
+            depth: true, 
+            powerPreference: 'high-performance' 
+          }}
+        >
           <fog attach="fog" args={[PALETTE.sky, 10, 40]} />
           
           <ambientLight intensity={0.5} color={PALETTE.lavender} />
@@ -445,7 +455,7 @@ const Act2MemoryGarden = ({ onComplete }) => {
           {/* Distant Magical Moon */}
           <mesh position={[0, 12, -40]}>
             <sphereGeometry args={[8, 32, 32]} />
-            <meshBasicMaterial color={PALETTE.peachGlow} transparent opacity={0.9} />
+            <meshBasicMaterial color={PALETTE.peachGlow} transparent opacity={0.6} />
           </mesh>
           <pointLight position={[0, 12, -38]} color={PALETTE.peachGlow} intensity={1.5} distance={50} />
 
@@ -463,13 +473,13 @@ const Act2MemoryGarden = ({ onComplete }) => {
           <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, -2.0, -15]}>
             <planeGeometry args={[120, 120]} />
             <MeshReflectorMaterial 
-              blur={[600, 200]} 
-              resolution={512} 
-              mixBlur={2} 
-              mixStrength={25} 
-              roughness={0.3} 
+              blur={[400, 100]} 
+              resolution={256} 
+              mixBlur={1.5} 
+              mixStrength={20} 
+              roughness={0.4} 
               color={PALETTE.water} 
-              metalness={0.7} 
+              metalness={0.6} 
             />
           </mesh>
 
