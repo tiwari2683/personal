@@ -1,51 +1,56 @@
 import * as THREE from 'three';
 import { shaderMaterial } from '@react-three/drei';
 
-/**
- * GPGPU Particle Render Material
- * This material reads positions from a texture (uPositions) instead of
- * using standard geometry attributes. This is the "rendering" part of GPGPU.
- */
 const ParticleRenderMaterial = shaderMaterial(
   {
     uPositions: null,
-    uPointSize: 2.0,
+    uPointSize: 1.0,
+    uColor: new THREE.Color('#FFD700'),
     uOpacity: 1.0,
-    uColor: new THREE.Color('#FFD700')
+    uTime: 0
   },
-  // VERTEX SHADER: Fetch displacement from the GPGPU texture
+  // VERTEX SHADER
   `
     uniform sampler2D uPositions;
     uniform float uPointSize;
+    uniform float uTime;
     varying vec2 vUv;
-    
+    varying float vDistance;
+
     void main() {
       vUv = uv;
-      // Fetch the world-space position from the GPGPU texture
-      vec3 pos = texture2D(uPositions, vUv).xyz;
+      // Fetch position from simulation texture
+      vec3 pos = texture2D(uPositions, uv).xyz;
       
       vec4 mvPosition = modelViewMatrix * vec4(pos, 1.0);
-      
-      // Point size attenuation (smaller when further away)
-      gl_PointSize = uPointSize * (250.0 / -mvPosition.z);
       gl_Position = projectionMatrix * mvPosition;
+      
+      // Points get smaller as they move away (size attenuation)
+      gl_PointSize = uPointSize * (300.0 / -mvPosition.z);
+      
+      // Pass distance for fading
+      vDistance = length(pos);
     }
   `,
-  // FRAGMENT SHADER: Beautiful glowing points
+  // FRAGMENT SHADER
   `
     uniform vec3 uColor;
     uniform float uOpacity;
+    uniform float uTime;
     varying vec2 vUv;
+    varying float vDistance;
 
     void main() {
-      // Circular points (standard trick)
-      float dist = distance(gl_PointCoord, vec2(0.5));
+      // Circular point with soft edge
+      float dist = length(gl_PointCoord - vec2(0.5));
       if (dist > 0.5) discard;
       
-      // Glow falloff
-      float glow = exp(-dist * 5.0);
+      float alpha = (1.0 - dist * 2.0) * uOpacity;
       
-      gl_FragColor = vec4(uColor, glow * uOpacity);
+      // Add a subtle flicker
+      float flicker = 0.8 + 0.2 * sin(uTime * 10.0 + vUv.x * 100.0);
+      
+      gl_FragColor = vec4(uColor, alpha * flicker);
     }
   `
 );

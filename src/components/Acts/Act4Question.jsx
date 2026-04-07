@@ -6,6 +6,8 @@ import { CONFIG } from '../../config';
 import { motion, AnimatePresence } from 'framer-motion';
 import { EffectComposer, Bloom } from '@react-three/postprocessing';
 
+import GPGPUSwarm from '../GPGPU/GPGPUSwarm';
+
 const GoldenRing = ({ tilt }) => {
   const ringRef = useRef();
 
@@ -84,17 +86,18 @@ const Act4Question = ({ onComplete, tilt }) => {
         <spotLight position={[10, 10, 10]} angle={0.15} penumbra={1} intensity={2} color={CONFIG.COLOR.SECONDARY} />
         
         <Stars radius={100} depth={50} count={1000} factor={4} saturation={0.5} fade speed={1} color={CONFIG.COLOR.PRIMARY} />
+        
+        <GPGPUSwarm count={128} color="#FFD700" isVisible={true} />
 
         <PresentationControls global rotation={[0, 0, 0]} polar={[-0.4, 0.4]} azimuth={[-0.4, 0.4]}>
            <GoldenRing tilt={tilt} />
         </PresentationControls>
 
-        {/* ADD THIS NEW MAGIC DUST LAYER */}
         <EffectComposer disableNormalPass>
             <Bloom 
-              luminanceThreshold={1.0} // Higher threshold so only the brightest things (the ring) glow
+              luminanceThreshold={0.15} // Lowered so the gold dust particles glow beautifully
               mipmapBlur 
-              intensity={3.0} 
+              intensity={2.0} 
             />
         </EffectComposer>
       </Canvas>

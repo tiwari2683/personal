@@ -1,7 +1,7 @@
 import React, { useRef, useState, useEffect, useMemo } from 'react';
-import { Canvas, useFrame, extend } from '@react-three/fiber';
-import { Stars, Sparkles, MeshReflectorMaterial } from '@react-three/drei';
-import { EffectComposer, Bloom } from '@react-three/postprocessing';
+import { Canvas, useFrame, extend, useThree } from '@react-three/fiber';
+import { Stars, MeshReflectorMaterial, Sparkles } from '@react-three/drei';
+import { EffectComposer, Bloom, Vignette } from '@react-three/postprocessing';
 import * as THREE from 'three';
 import { motion } from 'framer-motion';
 
@@ -9,7 +9,106 @@ import AuroraMaterial from '../../shaders/AuroraMaterial';
 extend({ AuroraMaterial });
 
 // ----------------------------------------------------------------------
-// 1. FALLING SNOW PARTICLES
+// 1. CINEMATIC CAMERA RIG (The "Expensive" Feel)
+// ----------------------------------------------------------------------
+const CinematicCameraRig = () => {
+  const { camera, pointer } = useThree();
+  const vec = new THREE.Vector3();
+
+  useFrame((state) => {
+    // 1. Gentle floating breathing effect
+    const t = state.clock.elapsedTime;
+    const breatheY = Math.sin(t * 0.5) * 0.2;
+    
+    // 2. Smooth parallax reacting to the mouse/touch
+    const targetX = pointer.x * 2;
+    const targetY = pointer.y * 1 + breatheY;
+
+    // Smoothly interpolate the camera position for that heavy, cinematic weight
+    camera.position.lerp(vec.set(targetX, targetY, 5), 0.02);
+    camera.lookAt(0, 0, -5);
+  });
+
+  return null;
+};
+
+// ----------------------------------------------------------------------
+// 1.5 REALISTIC TWINKLING STARS (Custom Shader)
+// ----------------------------------------------------------------------
+const CinematicStars = () => {
+  const pointsRef = useRef();
+  const count = 2300;
+
+  const [positions, phases, sizes] = useMemo(() => {
+    const pos = new Float32Array(count * 3);
+    const phase = new Float32Array(count);
+    const size = new Float32Array(count);
+    for (let i = 0; i < count; i++) {
+      const r = 40 + Math.random() * 60;
+      const theta = 2 * Math.PI * Math.random();
+      const phi = Math.acos(2 * Math.random() - 1);
+      
+      pos[i * 3] = r * Math.sin(phi) * Math.cos(theta);
+      pos[i * 3 + 1] = Math.abs(r * Math.sin(phi) * Math.sin(theta)) + 5; 
+      pos[i * 3 + 2] = r * Math.cos(phi) - 20; 
+
+      phase[i] = Math.random() * Math.PI * 2; 
+      size[i] = Math.random() * 1.5 + 0.5; 
+    }
+    return [pos, phase, size];
+  }, []);
+
+  const starMaterial = useMemo(() => {
+    return new THREE.ShaderMaterial({
+      uniforms: { uTime: { value: 0 } },
+      vertexShader: `
+        attribute float phase;
+        attribute float size;
+        varying float vAlpha;
+        uniform float uTime;
+        void main() {
+          vAlpha = 0.5 + 0.5 * sin(uTime * 3.0 + phase);
+          vec4 mvPosition = modelViewMatrix * vec4(position, 1.0);
+          gl_PointSize = size * (100.0 / -mvPosition.z);
+          gl_Position = projectionMatrix * mvPosition;
+        }
+      `,
+      fragmentShader: `
+        varying float vAlpha;
+        void main() {
+          vec2 xy = gl_PointCoord.xy - vec2(0.5);
+          float ll = length(xy);
+          if(ll > 0.5) discard;
+          vec3 color = mix(vec3(1.0, 1.0, 1.0), vec3(0.8, 0.9, 1.0), ll * 2.0);
+          gl_FragColor = vec4(color, vAlpha * (1.0 - ll * 2.0));
+        }
+      `,
+      transparent: true,
+      blending: THREE.AdditiveBlending,
+      depthWrite: false
+    });
+  }, []);
+
+  useFrame((state) => {
+    if (pointsRef.current) {
+      pointsRef.current.material.uniforms.uTime.value = state.clock.elapsedTime;
+      pointsRef.current.rotation.y = state.clock.elapsedTime * 0.005;
+    }
+  });
+
+  return (
+    <points ref={pointsRef} material={starMaterial}>
+      <bufferGeometry>
+        <bufferAttribute attach="attributes-position" count={count} array={positions} itemSize={3} />
+        <bufferAttribute attach="attributes-phase" count={count} array={phases} itemSize={1} />
+        <bufferAttribute attach="attributes-size" count={count} array={sizes} itemSize={1} />
+      </bufferGeometry>
+    </points>
+  );
+};
+
+// ----------------------------------------------------------------------
+// 1.8 FALLING SNOW PARTICLES
 // ----------------------------------------------------------------------
 const FallingSnow = () => {
   const pointsRef = useRef();
@@ -56,7 +155,7 @@ const FallingSnow = () => {
 };
 
 // ----------------------------------------------------------------------
-// 2. THE LIVING SKY & FROZEN LAKE
+// 2. THE LIVING CRYSTAL ENVIRONMENT
 // ----------------------------------------------------------------------
 const LivingAurora = () => {
   const materialRef = useRef();
@@ -66,25 +165,22 @@ const LivingAurora = () => {
 
   return (
     <group>
-      {/* The Sky - Moved back for star field depth */}
       <mesh position={[0, 2, -15]} scale={[45, 30, 1]}>
         <planeGeometry args={[1, 1, 128, 128]} />
         <auroraMaterial ref={materialRef} transparent depthWrite={false} blending={THREE.AdditiveBlending} />
       </mesh>
 
-      <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, -3, -5]}>
-        <planeGeometry args={[50, 20]} />
+      <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, -3.5, -5]}>
+        <planeGeometry args={[70, 30]} />
         <MeshReflectorMaterial 
-          blur={[300, 100]} 
+          blur={[400, 100]} 
           resolution={1024}
           mixBlur={1}
-          mixStrength={50} 
-          roughness={0.2}
+          mixStrength={80} 
+          roughness={0.15}
           depthScale={1.2}
-          minDepthThreshold={0.4}
-          maxDepthThreshold={1.4}
-          color="#051020" 
-          metalness={0.8}
+          color="#020813" 
+          metalness={0.9}
         />
       </mesh>
     </group>
@@ -157,7 +253,7 @@ const RubyHearts = () => {
 };
 
 // ----------------------------------------------------------------------
-// 4. CRYSTAL ROSES (Glowing from the Ice)
+// 4. CRYSTAL ROSES
 // ----------------------------------------------------------------------
 const CrystalRose = ({ position, scale }) => {
   const meshRef = useRef();
@@ -197,136 +293,97 @@ const CrystalRoseField = ({ isVisible }) => {
 };
 
 // ----------------------------------------------------------------------
-// 5. CINEMATIC METEOROIDS (Shooting Stars)
+// 5. REALISTIC PYROTECHNICS (With Explosive Lighting)
 // ----------------------------------------------------------------------
-const ShootingStar = () => {
-  const meshRef = useRef();
-  const [active, setActive] = useState(false);
-
-  const reset = () => {
-    if (!meshRef.current) return;
-    meshRef.current.position.set((Math.random() - 0.5) * 30, 10 + Math.random() * 10, -12);
-    meshRef.current.rotation.z = -Math.PI / 4;
-    setActive(true);
-  };
-
-  useEffect(() => {
-    const timer = setInterval(() => { if (!active) reset(); }, 4000 + Math.random() * 8000);
-    return () => clearInterval(timer);
-  }, [active]);
-
-  useFrame((state, delta) => {
-    if (!active || !meshRef.current) return;
-    meshRef.current.position.x += 20 * delta;
-    meshRef.current.position.y -= 20 * delta;
-    meshRef.current.scale.x *= 0.96;
-    if (meshRef.current.position.y < -10) {
-      setActive(false);
-      meshRef.current.scale.x = 1;
-    }
-  });
-
-  return (
-    <mesh ref={meshRef} scale={[1, 0.05, 0.05]}>
-      <boxGeometry args={[2, 1, 1]} />
-      <meshBasicMaterial color="#ffffff" transparent opacity={active ? 0.9 : 0} />
-    </mesh>
-  );
-};
-
-const MeteoroidsField = () => (
-  <group>
-    <ShootingStar />
-    <ShootingStar />
-    <ShootingStar />
-  </group>
-);
-
-// ----------------------------------------------------------------------
-// 6. CELEBRATION FIREWORKS
-// ----------------------------------------------------------------------
-const Firework = ({ color }) => {
+const RealisticFirework = ({ color, startDelay, positionX }) => {
   const pointsRef = useRef();
-  const [phase, setPhase] = useState('off'); // 'off', 'ascent', 'blast'
-  const count = 120;
+  const lightRef = useRef();
+  const [phase, setPhase] = useState('idle');
+  const count = 250; 
+  const lifeRef = useRef(0);
   
+  const flareTexture = useMemo(() => {
+    const canvas = document.createElement('canvas');
+    canvas.width = 64; canvas.height = 64;
+    const ctx = canvas.getContext('2d');
+    const grad = ctx.createRadialGradient(32, 32, 0, 32, 32, 32);
+    grad.addColorStop(0, 'rgba(255, 255, 255, 1)'); 
+    grad.addColorStop(0.2, color); 
+    grad.addColorStop(1, 'rgba(0, 0, 0, 0)');
+    ctx.fillStyle = grad;
+    ctx.fillRect(0, 0, 64, 64);
+    return new THREE.CanvasTexture(canvas);
+  }, [color]);
+
   const [positions, velocities] = useMemo(() => {
     const pos = new Float32Array(count * 3);
     const vel = new Float32Array(count * 3);
     for (let i = 0; i < count; i++) {
         const theta = Math.random() * Math.PI * 2;
         const phi = Math.acos(2 * Math.random() - 1);
-        const r = 1 + Math.random() * 2; // Explosive power
-        vel[i * 3] = r * Math.sin(phi) * Math.cos(theta);
-        vel[i * 3 + 1] = r * Math.sin(phi) * Math.sin(theta);
-        vel[i * 3 + 2] = r * Math.cos(phi);
+        const speed = 2 + Math.random() * 4; 
+        vel[i * 3] = speed * Math.sin(phi) * Math.cos(theta);
+        vel[i * 3 + 1] = speed * Math.sin(phi) * Math.sin(theta);
+        vel[i * 3 + 2] = speed * Math.cos(phi);
     }
     return [pos, vel];
   }, []);
 
   const launch = () => {
     if (!pointsRef.current) return;
-    const x = (Math.random() - 0.5) * 15;
-    const z = -10 - Math.random() * 5;
     const pos = pointsRef.current.geometry.attributes.position.array;
+    const burstY = 2 + Math.random() * 6; 
+    
     for (let i = 0; i < count; i++) {
-        pos[i * 3] = x; pos[i * 3 + 1] = -5; pos[i * 3 + 2] = z; // Start from bottom
+        pos[i * 3] = positionX + (Math.random() - 0.5); 
+        pos[i * 3 + 1] = burstY + (Math.random() - 0.5); 
+        pos[i * 3 + 2] = -8 + (Math.random() - 0.5);
     }
-    setPhase('ascent');
-    setTimeout(() => setPhase('blast'), 1000);
-    setTimeout(() => setPhase('off'), 3500);
+    lifeRef.current = 1.0; 
+    setPhase('burst');
   };
 
   useEffect(() => {
-    const timer = setInterval(() => { if (phase === 'off') launch(); }, 4000 + Math.random() * 4000);
-    return () => clearInterval(timer);
-  }, [phase]);
+    const initialWait = setTimeout(launch, startDelay);
+    return () => clearTimeout(initialWait);
+  }, [startDelay]);
 
   useFrame((state, delta) => {
-    if (phase === 'off' || !pointsRef.current) return;
-    const pos = pointsRef.current.geometry.attributes.position.array;
-    
-    if (phase === 'ascent') {
+    if (phase === 'burst' && pointsRef.current && lightRef.current) {
+        const pos = pointsRef.current.geometry.attributes.position.array;
+        lifeRef.current = Math.max(0, lifeRef.current - delta * 0.45); 
+        
+        lightRef.current.intensity = lifeRef.current * 8; 
+        
         for (let i = 0; i < count; i++) {
-            pos[i * 3 + 1] += 12 * delta; // Rise fast
-            pos[i * 3] += Math.sin(state.clock.elapsedTime * 10) * 0.02; // Slight wiggle
+            pos[i * 3] += velocities[i * 3] * delta;
+            pos[i * 3 + 1] += (velocities[i * 3 + 1] * delta) - 2.5 * delta; 
+            pos[i * 3 + 2] += velocities[i * 3 + 2] * delta;
+            
+            velocities[i * 3] *= 0.92;
+            velocities[i * 3 + 1] *= 0.92;
+            velocities[i * 3 + 2] *= 0.92;
         }
-    } else {
-        for (let i = 0; i < count; i++) {
-            pos[i * 3] += velocities[i * 3] * delta * 4;
-            pos[i * 3 + 1] += (velocities[i * 3 + 1] * delta * 4) - 0.8 * delta; // Gravity
-            pos[i * 3 + 2] += velocities[i * 3 + 2] * delta * 4;
-            // Friction (Slow down)
-            velocities[i * 3] *= 0.98;
-            velocities[i * 3 + 1] *= 0.98;
-            velocities[i * 3 + 2] *= 0.98;
+        pointsRef.current.geometry.attributes.position.needsUpdate = true;
+        pointsRef.current.material.opacity = lifeRef.current * (0.5 + Math.sin(state.clock.elapsedTime * 20) * 0.5);
+
+        if (lifeRef.current <= 0) {
+            setPhase('idle');
+            setTimeout(launch, 3000 + Math.random() * 5000);
         }
     }
-    pointsRef.current.geometry.attributes.position.needsUpdate = true;
   });
 
   return (
-    <points ref={pointsRef}>
-      <bufferGeometry><bufferAttribute attach="attributes-position" count={count} array={positions} itemSize={3} /></bufferGeometry>
-      <pointsMaterial 
-        size={phase === 'ascent' ? 0.15 : 0.45} 
-        color={color} 
-        transparent 
-        opacity={phase === 'off' ? 0 : 1} 
-        blending={THREE.AdditiveBlending} 
-        depthWrite={false} 
-      />
-    </points>
+    <group>
+      <pointLight ref={lightRef} color={color} distance={20} intensity={0} />
+      <points ref={pointsRef} visible={phase === 'burst'}>
+        <bufferGeometry><bufferAttribute attach="attributes-position" count={count} array={positions} itemSize={3} /></bufferGeometry>
+        <pointsMaterial map={flareTexture} size={0.5} transparent blending={THREE.AdditiveBlending} depthWrite={false} />
+      </points>
+    </group>
   );
 };
-
-const FireworkField = () => (
-  <group>
-    <Firework color="#00ffff" />
-    <Firework color="#ff00ff" />
-    <Firework color="#ffd700" />
-  </group>
-);
 
 // ----------------------------------------------------------------------
 // MAIN ACT 1 COMPONENT
@@ -341,58 +398,60 @@ const Act1Invitation = ({ onComplete }) => {
     }
   }, [isClicked, onComplete]);
 
-  // Framer Motion Variants
   const drawLine = {
     hidden: { pathLength: 0, opacity: 0 },
     visible: { pathLength: 1, opacity: 1, transition: { pathLength: { duration: 3, ease: "easeInOut" }, opacity: { duration: 1 } } }
   };
 
   const letterAnimation = {
-    hidden: { opacity: 0, y: 10, filter: 'blur(5px)' },
-    visible: { opacity: 1, y: 0, filter: 'blur(0px)', transition: { duration: 1.5, ease: "easeOut" } }
+    hidden: { opacity: 0, y: 15, filter: 'blur(8px)', scale: 0.8 },
+    visible: { opacity: 1, y: 0, filter: 'blur(0px)', scale: 1, transition: { duration: 1.5, ease: "easeOut" } }
   };
-
-  // Cinematic staggered text
-  const fianceeText = "HAPPY BIRTHDAY FIANCÉE".split("");
 
   return (
     <div 
       onClick={() => setClicked(true)}
-      style={{ position: 'absolute', inset: 0, overflow: 'hidden', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', backgroundColor: '#010409' }}
+      style={{ position: 'absolute', inset: 0, overflow: 'hidden', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', backgroundColor: '#010205' }}
     >
       {/* 3D SCENE */}
       <div style={{ position: 'absolute', inset: 0, zIndex: 0 }}>
-        <Canvas camera={{ position: [0, 0, 5], fov: 45 }} gl={{ alpha: true, antialias: true }}>
-          <ambientLight intensity={0.2} color="#88aaff" />
-          <pointLight position={[0, 5, -5]} intensity={2} color="#00ffcc" />
-
+        <Canvas gl={{ alpha: true, antialias: true, powerPreference: "high-performance" }}>
+          <CinematicCameraRig />
+          
+          <ambientLight intensity={0.1} color="#4466ff" />
+          
           <LivingAurora />
+          <CinematicStars />
           <RubyHearts />
           <FallingSnow />
           <CrystalRoseField isVisible={true} />
           
-          <Stars radius={40} depth={20} count={2500} factor={5} saturation={1} fade speed={1} />
-          <MeteoroidsField />
-          <FireworkField />
-          {/* Enhanced twinkling frost */}
-          <Sparkles count={400} scale={[25, 20, 10]} position={[0, 5, -5]} speed={1.5} size={5} opacity={0.9} color="#ffffff" />
-          <Sparkles count={60} scale={15} size={6} speed={0.4} opacity={0.5} color="#FFD700" />
+          {/* Intense Foreground Frost/Twinkle */}
+          <Sparkles count={200} scale={[30, 20, 10]} position={[0, 5, -2]} speed={2} size={4} opacity={0.8} color="#ffffff" />
           
-          <EffectComposer disableNormalPass>
-            <Bloom luminanceThreshold={0.15} mipmapBlur intensity={2.0} />
+          <RealisticFirework color="#00ffff" startDelay={1000} positionX={-8} />
+          <RealisticFirework color="#ff00ff" startDelay={3000} positionX={6} />
+          <RealisticFirework color="#FFD700" startDelay={4500} positionX={-3} />
+          <RealisticFirework color="#ff4444" startDelay={6500} positionX={4} />
+          
+          <EffectComposer disableNormalPass multisampling={4}>
+            <Bloom luminanceThreshold={0.1} mipmapBlur intensity={1.8} />
+            <Vignette eskil={false} offset={0.15} darkness={1.1} />
           </EffectComposer>
         </Canvas>
       </div>
 
-      <div style={{ position: 'absolute', inset: 0, zIndex: 1, background: 'radial-gradient(circle at center, rgba(0,0,0,0.2) 0%, rgba(1,4,9,0.7) 100%)', pointerEvents: 'none' }} />
+      <div style={{ position: 'absolute', inset: 0, zIndex: 1, background: 'radial-gradient(circle at center, rgba(0,0,0,0.1) 0%, rgba(1,2,5,0.85) 100%)', pointerEvents: 'none' }} />
 
       {/* CHOREOGRAPHY LAYER */}
-      <div style={{ position: 'relative', zIndex: 10, width: '100%', height: '100%', pointerEvents: 'none', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center' }}>
+      <motion.div 
+        style={{ position: 'relative', zIndex: 10, width: '100%', height: '100%', pointerEvents: 'none', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center' }}
+      >
         
         {/* Name: RITAM (SVG Draw) */}
         <motion.div initial="hidden" animate="visible" transition={{ delay: 1 }} style={{ width: '280px', height: '80px', display: 'flex', justifyContent: 'center' }}>
           <svg viewBox="0 0 300 100" fill="transparent">
-            <motion.path d="M30 90 C 30 50, 40 20, 70 20 C 100 20, 100 50, 70 60 C 50 65, 30 65, 30 65 L 80 100 M 110 90 L 110 30 M 140 30 L 140 90 C 140 100, 150 100, 160 90 M 130 50 L 160 50 M 190 90 C 170 90, 170 50, 190 50 C 210 50, 210 90, 210 90 M 200 70 L 180 70 M 230 90 L 230 50 C 230 30, 250 30, 250 50 L 250 90 M 250 65 C 250 30, 280 30, 280 50 L 280 90" stroke="#FFD700" strokeWidth="4" strokeLinecap="round" strokeLinejoin="round" variants={drawLine} style={{ filter: 'drop-shadow(0px 0px 15px rgba(255, 215, 0, 0.8))' }} />
+            <motion.path d="M30 90 C 30 50, 40 20, 70 20 C 100 20, 100 50, 70 60 C 50 65, 30 65, 30 65 L 80 100 M 110 90 L 110 30 M 140 30 L 140 90 C 140 100, 150 100, 160 90 M 130 50 L 160 50 M 190 90 C 170 90, 170 50, 190 50 C 210 50, 210 90, 210 90 M 200 70 L 180 70 M 230 90 L 230 50 C 230 30, 250 30, 250 50 L 250 90 M 250 65 C 250 30, 280 30, 280 50 L 280 90" stroke="#FFD700" strokeWidth="4" strokeLinecap="round" strokeLinejoin="round" variants={drawLine} style={{ filter: 'drop-shadow(0px 0px 20px rgba(255, 215, 0, 1))' }} />
           </svg>
         </motion.div>
 
@@ -471,28 +530,21 @@ const Act1Invitation = ({ onComplete }) => {
         <motion.div 
           initial="hidden" 
           animate="visible" 
-          transition={{ staggerChildren: 0.1, delayChildren: 6 }} 
-          style={{ 
-            marginTop: '1.5rem', 
-            display: 'flex', 
-            justifyContent: 'center', 
-            gap: '0.8rem', 
-            flexWrap: 'wrap', 
-            maxWidth: '360px' 
-          }}
+          transition={{ staggerChildren: 0.15, delayChildren: 4 }} 
+          style={{ marginTop: '2.5rem', display: 'flex', justifyContent: 'center', gap: '0.8rem', flexWrap: 'wrap', maxWidth: '400px' }}
         >
           {["HAPPY", "BIRTHDAY", "FIANCÉE"].map((word, wordIndex) => (
-            <div key={wordIndex} style={{ display: 'flex', gap: '2px' }}>
+            <div key={wordIndex} style={{ display: 'flex', gap: '3px' }}>
               {word.split("").map((char, charIndex) => (
                 <motion.span 
                   key={charIndex} 
                   variants={letterAnimation}
                   style={{ 
-                    color: '#FFD700', 
+                    color: '#ffffff', 
                     fontFamily: 'serif', 
-                    fontSize: '1.1rem', 
-                    letterSpacing: '0.1em', 
-                    textShadow: '0 0 10px rgba(255, 215, 0, 0.8)',
+                    fontSize: '1.4rem', 
+                    letterSpacing: '0.15em', 
+                    textShadow: '0 0 15px rgba(255, 215, 0, 0.9), 0 0 30px rgba(255, 255, 255, 0.5)',
                   }}
                 >
                   {char}
@@ -502,30 +554,25 @@ const Act1Invitation = ({ onComplete }) => {
           ))}
         </motion.div>
 
-        {/* Navigational Affordance (Arrow + Meaningful Text) */}
+        {/* Navigational Affordance */}
         <motion.div 
           initial={{ opacity: 0, y: 20 }} 
           animate={{ opacity: isClicked ? 0 : 1, y: 0 }} 
           transition={{ duration: 1.5, delay: 9 }} 
           style={{ position: 'absolute', bottom: '4rem', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '0.5rem' }}
         >
-          {/* Pulsing Arrow */}
-          <motion.div
-            animate={{ y: [0, 5, 0], scale: [1, 1.1, 1] }}
-            transition={{ duration: 2, repeat: Infinity, ease: "easeInOut" }}
-          >
-            <svg width="30" height="30" viewBox="0 0 24 24" fill="none" stroke="#FFD700" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ filter: 'drop-shadow(0px 0px 8px rgba(255,215,0,0.8))' }}>
+          <motion.div animate={{ y: [0, 8, 0], opacity: [0.5, 1, 0.5] }} transition={{ duration: 2.5, repeat: Infinity, ease: "easeInOut" }}>
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#FFD700" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" style={{ filter: 'drop-shadow(0px 0px 8px rgba(255,215,0,1))' }}>
               <path d="M7 13l5 5 5-5M7 6l5 5 5-5" />
             </svg>
           </motion.div>
-
           <svg width="280" height="20" viewBox="0 0 280 20" fill="transparent">
              <text x="50%" y="15" textAnchor="middle" fill="#FFD700" style={{ letterSpacing: '0.25em', fontSize: '11px', fontWeight: 'lighter', textTransform: 'uppercase', filter: 'drop-shadow(0px 0px 5px rgba(255,215,0,0.8))' }}>
                Start our story together
              </text>
           </svg>
         </motion.div>
-      </div>
+      </motion.div>
 
       {isClicked && <div style={{ position: 'absolute', inset: 0, backgroundColor: '#fff', zIndex: 50, animation: 'fadeToWhite 2.5s forwards ease-in-out' }} />}
       <style>{`@keyframes fadeToWhite { 0% { opacity: 0; } 100% { opacity: 1; } }`}</style>
