@@ -43,28 +43,46 @@ const BreathingNebula = () => {
 };
 
 // ============================================================================
-// 🎭 MAIN ACT 3 COMPONENT: THE NEBULA OF DREAMS
+// 🎭 MAIN ACT 3 COMPONENT: THE NEBULA OF DREAMS (Refined Cinematic Version)
 // ============================================================================
 const Act3LoveLetter = ({ onComplete }) => {
   const [phraseIndex, setPhraseIndex] = useState(0);
+  const [isReadingFinished, setIsReadingFinished] = useState(false);
 
-  // Break the letter into emotional phrases for rhythmic reveal
+  // Break the letter into emotional phrases
   const phrases = useMemo(() => {
-    // Split by common sentence endings and logical pauses
     return CONFIG.LOVE_LETTER.match(/[^.!?]+[.!?]*/g) || [CONFIG.LOVE_LETTER];
   }, []);
 
+  const currentPhrase = phrases[phraseIndex];
+  const words = useMemo(() => currentPhrase.trim().split(' '), [currentPhrase]);
+
   useEffect(() => {
-    // Each phrase stays for 5 seconds including transitions
-    const timer = setInterval(() => {
+    setIsReadingFinished(false);
+    
+    // Calculate display duration: 300ms per word + 4 seconds padding
+    const duration = Math.max(5000, words.length * 350 + 4000);
+    
+    // Mark as finished after the stagger animation would realistically end
+    const finishTimer = setTimeout(() => setIsReadingFinished(true), words.length * 200 + 2000);
+    
+    const nextTimer = setTimeout(() => {
       setPhraseIndex((prev) => {
         if (prev < phrases.length - 1) return prev + 1;
-        return prev; // Stay on last phrase
+        return prev;
       });
-    }, 5500);
+    }, duration);
 
-    return () => clearInterval(timer);
-  }, [phrases.length]);
+    return () => {
+      clearTimeout(finishTimer);
+      clearTimeout(nextTimer);
+    };
+  }, [phraseIndex, phrases.length, words.length]);
+
+  const goToNext = () => {
+    if (phraseIndex < phrases.length - 1) setPhraseIndex(phraseIndex + 1);
+    else onComplete();
+  };
 
   const isLastPhrase = phraseIndex === phrases.length - 1;
 
@@ -75,64 +93,98 @@ const Act3LoveLetter = ({ onComplete }) => {
       <div style={{ position: 'absolute', inset: 0, zIndex: 0 }}>
         <Canvas camera={{ position: [0, 0, 10], fov: 45 }} dpr={[1, 1.5]} gl={{ antialias: false, stencil: false }}>
           <fog attach="fog" args={[PALETTE.abyss, 5, 30]} />
-          
           <ambientLight intensity={0.4} />
-          
           <BreathingNebula />
-
-          {/* Floating light source that moves randomly */}
-          <Float speed={2} rotationIntensity={0.5} floatIntensity={1}>
+          <Float speed={1.5} rotationIntensity={0.2} floatIntensity={0.5}>
              <pointLight position={[0, 0, 0]} color={PALETTE.peach} intensity={1} distance={15} />
           </Float>
-
-          {/* NO DEPTH OF FIELD: Pure stability for Act 3 */}
           <EffectComposer multisampling={0}>
-            <Bloom luminanceThreshold={0.5} mipmapBlur intensity={1.2} />
+            <Bloom luminanceThreshold={0.5} mipmapBlur intensity={1} />
             <Vignette offset={0.5} darkness={0.7} />
           </EffectComposer>
         </Canvas>
       </div>
 
       {/* 2D TYPOGRAPHY LAYER */}
-      <div style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 10, pointerEvents: 'none' }}>
-        <div style={{ maxWidth: '80%', textAlign: 'center', padding: '2rem' }}>
+      <div 
+        style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 10, cursor: 'pointer' }}
+        onClick={isReadingFinished ? goToNext : null}
+      >
+        <div style={{ maxWidth: '85%', textAlign: 'center', padding: '2rem' }}>
           <AnimatePresence mode="wait">
             <motion.div
               key={phraseIndex}
-              initial={{ opacity: 0, y: 20, filter: 'blur(10px)' }}
-              animate={{ opacity: 1, y: 0, filter: 'blur(0px)' }}
-              exit={{ opacity: 0, y: -20, filter: 'blur(10px)' }}
-              transition={{ duration: 1.8, ease: [0.4, 0, 0.2, 1] }}
+              initial="hidden"
+              animate="visible"
+              exit="exit"
+              variants={{
+                hidden: { opacity: 0 },
+                visible: { 
+                  opacity: 1,
+                  transition: { staggerChildren: 0.15, delayChildren: 0.5 } 
+                },
+                exit: { 
+                  opacity: 0, 
+                  y: -20, 
+                  filter: 'blur(10px)',
+                  transition: { duration: 1.5 } 
+                }
+              }}
             >
-              <h1 style={{ 
+              <div style={{ 
                 color: '#ffffff', 
                 fontFamily: 'serif', 
                 fontSize: '1.8rem', 
                 fontStyle: 'italic',
-                lineHeight: '1.6', 
+                lineHeight: '1.8', 
                 fontWeight: '300',
-                textShadow: '0 0 20px rgba(255, 218, 185, 0.3)',
-                letterSpacing: '0.02em'
+                textShadow: '0 0 20px rgba(255, 218, 185, 0.2)',
+                display: 'flex',
+                flexWrap: 'wrap',
+                justifyContent: 'center'
               }}>
-                {phrases[phraseIndex]}
-              </h1>
+                {words.map((word, i) => (
+                  <motion.span
+                    key={i}
+                    variants={{
+                      hidden: { opacity: 0, y: 10, filter: 'blur(5px)' },
+                      visible: { opacity: 1, y: 0, filter: 'blur(0px)' }
+                    }}
+                    transition={{ duration: 1 }}
+                    style={{ marginRight: '0.6rem' }}
+                  >
+                    {word}
+                  </motion.span>
+                ))}
+              </div>
             </motion.div>
           </AnimatePresence>
         </div>
       </div>
 
-      {/* CONTINUATION BUTTON (Appears near the end or on last phrase) */}
+      {/* MANUAL NAVIGATION NUDGE (Only appears after reading) */}
       <AnimatePresence>
-        {isLastPhrase && (
+        {isReadingFinished && !isLastPhrase && (
           <motion.div 
-            initial={{ opacity: 0 }} 
-            animate={{ opacity: 1 }} 
-            transition={{ delay: 2, duration: 2 }}
-            style={{ position: 'absolute', bottom: '10%', width: '100%', display: 'flex', justifyContent: 'center', pointerEvents: 'auto' }}
+            initial={{ opacity: 0 }} animate={{ opacity: 0.4 }} exit={{ opacity: 0 }}
+            style={{ position: 'absolute', bottom: '15%', width: '100%', textAlign: 'center', pointerEvents: 'none' }}
+          >
+            <p style={{ color: PALETTE.peach, fontSize: '9px', letterSpacing: '0.4em', textTransform: 'uppercase' }}>
+              Tap to continue
+            </p>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* FINAL CONTINUATION BUTTON */}
+      <AnimatePresence>
+        {isLastPhrase && isReadingFinished && (
+          <motion.div 
+            initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 2 }}
+            style={{ position: 'absolute', bottom: '10%', width: '100%', display: 'flex', justifyContent: 'center', zIndex: 20 }}
           >
             <motion.button 
               onClick={onComplete}
-              whileHover={{ scale: 1.05 }}
               whileTap={{ scale: 0.95 }}
               style={{ 
                 background: 'rgba(255,218,185,0.05)', 
@@ -143,7 +195,7 @@ const Act3LoveLetter = ({ onComplete }) => {
                 fontSize: '11px', 
                 cursor: 'pointer', 
                 backdropFilter: 'blur(10px)', 
-                padding: '14px 28px', 
+                padding: '16px 32px', 
                 textTransform: 'uppercase'
               }}
             >
@@ -153,17 +205,17 @@ const Act3LoveLetter = ({ onComplete }) => {
         )}
       </AnimatePresence>
 
-      {/* OPTIONAL: PROGRESS INDICATOR (Minimalist) */}
-      <div style={{ position: 'absolute', bottom: '2rem', left: '10%', right: '10%', height: '1px', background: 'rgba(255,255,255,0.05)' }}>
+      {/* PROGRESS TRACKER */}
+      <div style={{ position: 'absolute', top: '2rem', left: '10%', right: '10%', height: '1px', background: 'rgba(255,255,255,0.03)' }}>
         <motion.div 
            animate={{ width: `${((phraseIndex + 1) / phrases.length) * 100}%` }}
-           transition={{ duration: 1 }}
-           style={{ height: '100%', background: PALETTE.peach, opacity: 0.3 }}
+           style={{ height: '100%', background: PALETTE.peach, opacity: 0.2 }}
         />
       </div>
 
     </div>
   );
 };
+
 
 export default Act3LoveLetter;
