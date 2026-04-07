@@ -4,6 +4,7 @@ import { Float, Text, MeshDistortMaterial, PresentationControls, Stars } from '@
 import * as THREE from 'three';
 import { CONFIG } from '../../config';
 import { motion, AnimatePresence } from 'framer-motion';
+import { EffectComposer, Bloom } from '@react-three/postprocessing';
 
 const GoldenRing = ({ tilt }) => {
   const ringRef = useRef();
@@ -87,6 +88,15 @@ const Act4Question = ({ onComplete, tilt }) => {
         <PresentationControls global rotation={[0, 0, 0]} polar={[-0.4, 0.4]} azimuth={[-0.4, 0.4]}>
            <GoldenRing tilt={tilt} />
         </PresentationControls>
+
+        {/* ADD THIS NEW MAGIC DUST LAYER */}
+        <EffectComposer disableNormalPass>
+            <Bloom 
+              luminanceThreshold={1.0} // Higher threshold so only the brightest things (the ring) glow
+              mipmapBlur 
+              intensity={3.0} 
+            />
+        </EffectComposer>
       </Canvas>
 
       <div style={{ position: 'absolute', inset: 0, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', pointerEvents: 'none', paddingBottom: '2rem', zIndex: 2 }}>
