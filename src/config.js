@@ -1,4 +1,4 @@
-3/**
+/**
  * [NAME]'S EXPERIENCE CONFIGURATION
  * The beating heart of the "Princess-worthy" world.
  */
@@ -16,8 +16,6 @@ export const CONFIG = {
 
   // SENSORY
   FAVORITE_FLOWER: "rose", // rose, jasmine, sunflower, lily
-  SONG_PATH: "/audio/song.mp3",
-  AMBIENT_PATH: "/audio/ambient.mp3", // Soft piano/celeste
 
   // MEMORIES (5 total)
   MEMORIES: [

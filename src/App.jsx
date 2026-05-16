@@ -11,7 +11,6 @@ import Act5Bloom from './components/Acts/Act5Bloom';
 import SparkleCursor from './components/Sensory/SparkleCursor';
 
 import { CONFIG } from './config';
-import { playMusic } from './utils/audio';
 
 // ----------------------------------------------------------------------
 // ANIMATED ROUTES WRAPPER (Cinematic Cross-Fade)
@@ -68,14 +67,7 @@ const AnimatedRoutes = ({ tilt }) => {
 // MAIN APP ENTRY
 // ----------------------------------------------------------------------
 function App() {
-  const [isAudioInitialized, setAudioInitialized] = useState(false);
   const [tilt, setTilt] = useState({ x: 0, y: 0 });
-
-  // Handle music start on first interaction (World Class Practice)
-  const handleStart = () => {
-    setAudioInitialized(true);
-    playMusic();
-  };
 
   // SENSORY: Tilt/Orientation Tracking (For Garden parallax)
   useEffect(() => {
@@ -101,21 +93,6 @@ function App() {
         <Suspense fallback={<div style={{ position: 'fixed', inset: 0, backgroundColor: '#0a0816' }} />}>
           <AnimatedRoutes tilt={tilt} />
         </Suspense>
-
-        {/* AUDIO GESTURE OVERLAY (Princess Safety) */}
-        {!isAudioInitialized && (
-          <div
-            onClick={handleStart}
-            style={{
-              position: 'fixed',
-              inset: 0,
-              zIndex: 9999,
-              backgroundColor: 'rgba(0,0,0,0.01)',
-              pointerEvents: 'auto',
-              cursor: 'pointer'
-            }}
-          />
-        )}
       </div>
     </Router>
   );

@@ -21,21 +21,7 @@ const G = {
   blush: '#f8bbd0',
 };
 
-// ============================================================================
-// 🔊 SOUND DESIGN (Lazy-loaded / Optional)
-// ============================================================================
-import { Howl } from 'howler';
-
-const padSound = new Howl({ src: ['/audio/pad.mp3'], loop: true, volume: 0.0 }); // Starts at 0, fades in
-const chimeSound = new Howl({ src: ['/audio/chime.mp3'], volume: 0.08 });
-const heartSound = new Howl({ src: ['/audio/heart.mp3'], volume: 0.25 });
-const fanfareSound = new Howl({ src: ['/audio/fanfare.mp3'], volume: 0.5 });
-
-const safePlay = (sound) => {
-  if (sound && typeof sound.play === 'function') {
-    try { sound.play(); } catch (e) { }
-  }
-};
+const safePlay = () => {};
 
 
 
@@ -812,11 +798,6 @@ const Act4Question = ({ onComplete }) => {
 
   useEffect(() => {
     // Play on first interaction if possible, or just start if autoplay allows.
-    if (padSound) {
-      padSound.play();
-      padSound.fade(0, 0.15, 3000);
-    }
-
     // Core Choreography Engine
     timersRef.current = [
       setTimeout(() => setSeq(s => ({ ...s, nebula: 0.4 })), 50),
@@ -847,7 +828,6 @@ const Act4Question = ({ onComplete }) => {
 
   const handleYesClick = () => {
     timersRef.current.forEach(clearTimeout); // KILL ALL TIMERS so they don't bring buttons back
-    safePlay(fanfareSound);
     setSeq(s => ({ ...s, buttons: false, text: false, labels: false, ring: 'explode', accepted: true }));
     // Flash effect using DOM
     const flash = document.createElement('div');
