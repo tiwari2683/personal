@@ -1,9 +1,9 @@
 import React, { useRef, useState, useEffect, useMemo } from 'react';
 import { Canvas, useFrame, extend, useThree } from '@react-three/fiber';
-import { Stars, MeshReflectorMaterial, Sparkles } from '@react-three/drei';
 import { EffectComposer, Bloom, Vignette } from '@react-three/postprocessing';
 import * as THREE from 'three';
-import { motion } from 'framer-motion';
+import { motion, AnimatePresence } from 'framer-motion';
+import { CONFIG } from '../../config';
 
 import AuroraMaterial from '../../shaders/AuroraMaterial';
 extend({ AuroraMaterial });
@@ -16,44 +16,43 @@ const CinematicCameraRig = () => {
   const vec = new THREE.Vector3();
 
   useFrame((state) => {
-    // 1. Gentle floating breathing effect
     const t = state.clock.elapsedTime;
-    const breatheY = Math.sin(t * 0.5) * 0.2;
-    
-    // 2. Smooth parallax reacting to the mouse/touch
-    const targetX = pointer.x * 2;
-    const targetY = pointer.y * 1 + breatheY;
+    const breatheY = Math.sin(t * 0.3) * 0.4;
 
-    // Smoothly interpolate the camera position for that heavy, cinematic weight
-    camera.position.lerp(vec.set(targetX, targetY, 5), 0.02);
-    camera.lookAt(0, 0, -5);
+    // Smooth parallax reacting to the mouse/touch
+    const targetX = pointer.x * 3;
+    const targetY = pointer.y * 2 + breatheY;
+
+    camera.position.lerp(vec.set(targetX, targetY, 8), 0.02);
+    camera.lookAt(0, 0, -10);
   });
 
   return null;
 };
 
 // ----------------------------------------------------------------------
-// 1.5 REALISTIC TWINKLING STARS (Custom Shader)
+// 2. REALISTIC TWINKLING STARS
 // ----------------------------------------------------------------------
 const CinematicStars = () => {
   const pointsRef = useRef();
-  const count = 2300;
+  const count = 2500;
 
   const [positions, phases, sizes] = useMemo(() => {
     const pos = new Float32Array(count * 3);
     const phase = new Float32Array(count);
     const size = new Float32Array(count);
     for (let i = 0; i < count; i++) {
-      const r = 40 + Math.random() * 60;
+      // Deep hemisphere projection
+      const r = 50 + Math.random() * 80;
       const theta = 2 * Math.PI * Math.random();
       const phi = Math.acos(2 * Math.random() - 1);
-      
-      pos[i * 3] = r * Math.sin(phi) * Math.cos(theta);
-      pos[i * 3 + 1] = Math.abs(r * Math.sin(phi) * Math.sin(theta)) + 5; 
-      pos[i * 3 + 2] = r * Math.cos(phi) - 20; 
 
-      phase[i] = Math.random() * Math.PI * 2; 
-      size[i] = Math.random() * 1.5 + 0.5; 
+      pos[i * 3] = r * Math.sin(phi) * Math.cos(theta);
+      pos[i * 3 + 1] = Math.abs(r * Math.sin(phi) * Math.sin(theta)) + 10;
+      pos[i * 3 + 2] = r * Math.cos(phi) - 30;
+
+      phase[i] = Math.random() * Math.PI * 2;
+      size[i] = Math.random() * 1.5 + 0.5;
     }
     return [pos, phase, size];
   }, []);
@@ -67,9 +66,9 @@ const CinematicStars = () => {
         varying float vAlpha;
         uniform float uTime;
         void main() {
-          vAlpha = 0.5 + 0.5 * sin(uTime * 3.0 + phase);
+          vAlpha = 0.5 + 0.5 * sin(uTime * 2.0 + phase);
           vec4 mvPosition = modelViewMatrix * vec4(position, 1.0);
-          gl_PointSize = size * (100.0 / -mvPosition.z);
+          gl_PointSize = size * (150.0 / -mvPosition.z);
           gl_Position = projectionMatrix * mvPosition;
         }
       `,
@@ -79,8 +78,8 @@ const CinematicStars = () => {
           vec2 xy = gl_PointCoord.xy - vec2(0.5);
           float ll = length(xy);
           if(ll > 0.5) discard;
-          vec3 color = mix(vec3(1.0, 1.0, 1.0), vec3(0.8, 0.9, 1.0), ll * 2.0);
-          gl_FragColor = vec4(color, vAlpha * (1.0 - ll * 2.0));
+          vec3 color = mix(vec3(1.0, 0.95, 0.8), vec3(0.8, 0.9, 1.0), ll * 2.0);
+          gl_FragColor = vec4(color, vAlpha * (1.0 - ll * 2.0) * 0.8);
         }
       `,
       transparent: true,
@@ -92,7 +91,7 @@ const CinematicStars = () => {
   useFrame((state) => {
     if (pointsRef.current) {
       pointsRef.current.material.uniforms.uTime.value = state.clock.elapsedTime;
-      pointsRef.current.rotation.y = state.clock.elapsedTime * 0.005;
+      pointsRef.current.rotation.y = state.clock.elapsedTime * 0.002;
     }
   });
 
@@ -108,24 +107,26 @@ const CinematicStars = () => {
 };
 
 // ----------------------------------------------------------------------
-// 1.8 FALLING SNOW PARTICLES
+// 3. GLOWING STARDUST (Ambient Foreground Particles)
 // ----------------------------------------------------------------------
-const FallingSnow = () => {
+const StardustPath = () => {
   const pointsRef = useRef();
-  const count = 600;
+  const count = 400;
 
-  const [positions, speeds, swayOffsets] = useMemo(() => {
+  const [positions, speeds, swayOffsets, scales] = useMemo(() => {
     const pos = new Float32Array(count * 3);
     const spd = new Float32Array(count);
     const sway = new Float32Array(count);
+    const scl = new Float32Array(count);
     for (let i = 0; i < count; i++) {
-      pos[i * 3] = (Math.random() - 0.5) * 30; 
-      pos[i * 3 + 1] = Math.random() * 20 - 4; 
-      pos[i * 3 + 2] = (Math.random() - 0.5) * 15 - 2; 
-      spd[i] = 0.5 + Math.random() * 1.5; 
-      sway[i] = Math.random() * Math.PI * 2; 
+      pos[i * 3] = (Math.random() - 0.5) * 40;
+      pos[i * 3 + 1] = Math.random() * 30 - 15;
+      pos[i * 3 + 2] = (Math.random() - 0.5) * 20 - 5;
+      spd[i] = 0.2 + Math.random() * 0.5;
+      sway[i] = Math.random() * Math.PI * 2;
+      scl[i] = Math.random() * 0.08 + 0.02;
     }
-    return [pos, spd, sway];
+    return [pos, spd, sway, scl];
   }, []);
 
   useFrame((state, delta) => {
@@ -134,11 +135,14 @@ const FallingSnow = () => {
     const time = state.clock.getElapsedTime();
 
     for (let i = 0; i < count; i++) {
-      pos[i * 3 + 1] -= speeds[i] * delta * 0.8;
-      pos[i * 3] += Math.sin(time + swayOffsets[i]) * 0.01;
-      if (pos[i * 3 + 1] < -3) {
-        pos[i * 3 + 1] = 15;
-        pos[i * 3] = (Math.random() - 0.5) * 30;
+      // Slow upward drift like embers
+      pos[i * 3 + 1] += speeds[i] * delta * 0.5;
+      pos[i * 3] += Math.sin(time * 0.5 + swayOffsets[i]) * 0.01;
+      pos[i * 3 + 2] += Math.cos(time * 0.3 + swayOffsets[i]) * 0.01;
+
+      if (pos[i * 3 + 1] > 15) {
+        pos[i * 3 + 1] = -15;
+        pos[i * 3] = (Math.random() - 0.5) * 40;
       }
     }
     pointsRef.current.geometry.attributes.position.needsUpdate = true;
@@ -149,239 +153,219 @@ const FallingSnow = () => {
       <bufferGeometry>
         <bufferAttribute attach="attributes-position" count={count} array={positions} itemSize={3} />
       </bufferGeometry>
-      <pointsMaterial size={0.06} color="#e0f2fe" transparent opacity={0.6} depthWrite={false} blending={THREE.AdditiveBlending} />
+      <pointsMaterial size={0.05} color="#ffd700" transparent opacity={0.6} depthWrite={false} blending={THREE.AdditiveBlending} sizeAttenuation={true} />
     </points>
   );
 };
 
 // ----------------------------------------------------------------------
-// 2. THE LIVING CRYSTAL ENVIRONMENT
+// 4. THE LIVING AURORA DOME
 // ----------------------------------------------------------------------
-const LivingAurora = () => {
+const LivingAurora = ({ fadeOutTarget }) => {
   const materialRef = useRef();
+
   useFrame((state) => {
-    if (materialRef.current) materialRef.current.uTime = state.clock.elapsedTime;
+    if (materialRef.current) {
+      materialRef.current.uTime = state.clock.elapsedTime;
+      // Smoothly fade out when transitioning
+      materialRef.current.uIntensity += (fadeOutTarget - materialRef.current.uIntensity) * 0.05;
+    }
   });
 
   return (
     <group>
-      <mesh position={[0, 2, -15]} scale={[45, 30, 1]}>
-        <planeGeometry args={[1, 1, 128, 128]} />
+      {/* The Sky Canvas - Scaled up for more immersion */}
+      <mesh position={[0, -5, -30]} scale={[120, 80, 1]}>
+        <planeGeometry args={[128, 128, 16, 16]} />
         <auroraMaterial ref={materialRef} transparent depthWrite={false} blending={THREE.AdditiveBlending} />
       </mesh>
-
-      <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, -3.5, -5]}>
-        <planeGeometry args={[70, 30]} />
-        <MeshReflectorMaterial 
-          blur={[400, 100]} 
-          resolution={1024}
-          mixBlur={1}
-          mixStrength={80} 
-          roughness={0.15}
-          depthScale={1.2}
-          color="#020813" 
-          metalness={0.9}
-        />
-      </mesh>
     </group>
   );
 };
 
 // ----------------------------------------------------------------------
-// 3. MAGICAL RUBY HEARTS
+// 4.5 PREMIUM GOLDEN CAKE (SVG)
 // ----------------------------------------------------------------------
-const RubyHearts = () => {
-  const pointsRef = useRef();
-  
-  const heartTexture = useMemo(() => {
-    const canvas = document.createElement('canvas');
-    canvas.width = 64; canvas.height = 64;
-    const ctx = canvas.getContext('2d');
-    ctx.beginPath();
-    ctx.moveTo(32, 15);
-    ctx.bezierCurveTo(32, 12, 25, 0, 15, 0);
-    ctx.bezierCurveTo(0, 0, 0, 15, 0, 15);
-    ctx.bezierCurveTo(0, 25, 15, 35, 32, 50);
-    ctx.bezierCurveTo(50, 35, 64, 25, 64, 15);
-    ctx.bezierCurveTo(64, 15, 64, 0, 49, 0);
-    ctx.bezierCurveTo(39, 0, 32, 12, 32, 15);
-    ctx.fillStyle = '#ffffff';
-    ctx.fill();
-    return new THREE.CanvasTexture(canvas);
-  }, []);
+const PremiumCake = () => {
+  const [mousePos, setMousePos] = useState({ x: 0, y: 0 });
+  const [transparentSrc, setTransparentSrc] = useState(null);
 
-  const [positions, speeds] = useMemo(() => {
-    const count = 40;
-    const pos = new Float32Array(count * 3);
-    const spd = new Float32Array(count);
-    for (let i = 0; i < count; i++) {
-      pos[i * 3] = (Math.random() - 0.5) * 15;
-      pos[i * 3 + 1] = -5 - Math.random() * 5;
-      pos[i * 3 + 2] = (Math.random() - 0.5) * 5;
-      spd[i] = 0.5 + Math.random() * 1.5;
-    }
-    return [pos, spd];
-  }, []);
+  // Background Removal Logic (The True Silhouette - High Precision V3)
+  useEffect(() => {
+    const img = new Image();
+    img.src = "/images/princess_cake.png";
+    img.crossOrigin = "anonymous";
+    img.onload = () => {
+      const canvas = document.createElement('canvas');
+      const ctx = canvas.getContext('2d');
+      canvas.width = img.width;
+      canvas.height = img.height;
 
-  useFrame((state, delta) => {
-    if (!pointsRef.current) return;
-    const time = state.clock.getElapsedTime();
-    const positions = pointsRef.current.geometry.attributes.position.array;
-    const swirlPower = Math.max(0, Math.min(1, (time - 3) / 2)); 
+      // Draw original
+      ctx.drawImage(img, 0, 0);
+      const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+      const data = imageData.data;
 
-    for (let i = 0; i < 40; i++) {
-      positions[i * 3 + 1] += speeds[i] * delta;
-      const x = positions[i * 3];
-      positions[i * 3] -= x * 0.01 * swirlPower;
-      positions[i * 3 + 2] += Math.sin(time + i) * 0.02 * swirlPower;
-      positions[i * 3] += Math.sin(time * speeds[i] + i) * 0.005;
-      
-      if (positions[i * 3 + 1] > 6) {
-        positions[i * 3 + 1] = -5;
-        positions[i * 3] = (Math.random() - 0.5) * 15;
+      // Aggressive 100% Transparency Filter
+      for (let i = 0; i < data.length; i += 4) {
+        const r = data[i];
+        const g = data[i + 1];
+        const b = data[i + 2];
+        const brightness = (r + g + b) / 3;
+
+        // Custom High-Sensitivity Threshold for AI-generated Dark backgrounds
+        const isBackground = (brightness < 75 && (r < 80 && g < 80 && b < 120));
+
+        // COORDINATE-BASED FIX: Aggressively cut the bottom 12% to remove shadow artifacts
+        const y = Math.floor((i / 4) / canvas.width);
+        if (isBackground || (y > canvas.height * 0.88 && brightness < 120)) {
+          data[i + 3] = 0;
+        } else if (brightness > 90) {
+          data[i + 3] = 255;
+        }
       }
-    }
-    pointsRef.current.geometry.attributes.position.needsUpdate = true;
-  });
 
-  return (
-    <points ref={pointsRef}>
-      <bufferGeometry><bufferAttribute attach="attributes-position" count={40} array={positions} itemSize={3} /></bufferGeometry>
-      <pointsMaterial map={heartTexture} size={0.6} color="#ff0055" transparent opacity={0.8} blending={THREE.AdditiveBlending} depthWrite={false} />
-    </points>
-  );
-};
-
-// ----------------------------------------------------------------------
-// 4. CRYSTAL ROSES
-// ----------------------------------------------------------------------
-const CrystalRose = ({ position, scale }) => {
-  const meshRef = useRef();
-  useFrame((state) => {
-    if (meshRef.current) {
-      meshRef.current.rotation.y += 0.005;
-      meshRef.current.position.y = position[1] + Math.sin(state.clock.elapsedTime + position[0]) * 0.05;
-    }
-  });
-
-  return (
-    <group position={position} scale={scale}>
-      <mesh ref={meshRef}>
-        <octahedronGeometry args={[1, 0]} />
-        <meshStandardMaterial color="#ff0044" emissive="#550011" emissiveIntensity={2} metalness={1} roughness={0} />
-      </mesh>
-      <pointLight color="#ff0044" intensity={1} distance={3} />
-    </group>
-  );
-};
-
-const CrystalRoseField = ({ isVisible }) => {
-  const roses = useMemo(() => [
-    { position: [-4, -2.8, -2], scale: 0.15 },
-    { position: [4, -2.8, -1], scale: 0.2 },
-    { position: [-2, -2.9, 1], scale: 0.1 },
-    { position: [2, -2.9, 2], scale: 0.12 },
-    { position: [6, -2.8, -3], scale: 0.18 },
-    { position: [-7, -2.8, -4], scale: 0.22 },
-  ], []);
-
-  return (
-    <motion.group initial={{ scale: 0 }} animate={{ scale: isVisible ? 1 : 0 }} transition={{ duration: 2 }}>
-      {roses.map((rose, i) => <CrystalRose key={i} {...rose} />)}
-    </motion.group>
-  );
-};
-
-// ----------------------------------------------------------------------
-// 5. REALISTIC PYROTECHNICS (With Explosive Lighting)
-// ----------------------------------------------------------------------
-const RealisticFirework = ({ color, startDelay, positionX }) => {
-  const pointsRef = useRef();
-  const lightRef = useRef();
-  const [phase, setPhase] = useState('idle');
-  const count = 250; 
-  const lifeRef = useRef(0);
-  
-  const flareTexture = useMemo(() => {
-    const canvas = document.createElement('canvas');
-    canvas.width = 64; canvas.height = 64;
-    const ctx = canvas.getContext('2d');
-    const grad = ctx.createRadialGradient(32, 32, 0, 32, 32, 32);
-    grad.addColorStop(0, 'rgba(255, 255, 255, 1)'); 
-    grad.addColorStop(0.2, color); 
-    grad.addColorStop(1, 'rgba(0, 0, 0, 0)');
-    ctx.fillStyle = grad;
-    ctx.fillRect(0, 0, 64, 64);
-    return new THREE.CanvasTexture(canvas);
-  }, [color]);
-
-  const [positions, velocities] = useMemo(() => {
-    const pos = new Float32Array(count * 3);
-    const vel = new Float32Array(count * 3);
-    for (let i = 0; i < count; i++) {
-        const theta = Math.random() * Math.PI * 2;
-        const phi = Math.acos(2 * Math.random() - 1);
-        const speed = 2 + Math.random() * 4; 
-        vel[i * 3] = speed * Math.sin(phi) * Math.cos(theta);
-        vel[i * 3 + 1] = speed * Math.sin(phi) * Math.sin(theta);
-        vel[i * 3 + 2] = speed * Math.cos(phi);
-    }
-    return [pos, vel];
+      ctx.putImageData(imageData, 0, 0);
+      setTransparentSrc(canvas.toDataURL());
+    };
   }, []);
-
-  const launch = () => {
-    if (!pointsRef.current) return;
-    const pos = pointsRef.current.geometry.attributes.position.array;
-    const burstY = 2 + Math.random() * 6; 
-    
-    for (let i = 0; i < count; i++) {
-        pos[i * 3] = positionX + (Math.random() - 0.5); 
-        pos[i * 3 + 1] = burstY + (Math.random() - 0.5); 
-        pos[i * 3 + 2] = -8 + (Math.random() - 0.5);
-    }
-    lifeRef.current = 1.0; 
-    setPhase('burst');
-  };
 
   useEffect(() => {
-    const initialWait = setTimeout(launch, startDelay);
-    return () => clearTimeout(initialWait);
-  }, [startDelay]);
+    const handleMove = (e) => {
+      setMousePos({ x: (e.clientX / window.innerWidth) - 0.5, y: (e.clientY / window.innerHeight) - 0.5 });
+    };
+    window.addEventListener('mousemove', handleMove);
+    return () => window.removeEventListener('mousemove', handleMove);
+  }, []);
 
-  useFrame((state, delta) => {
-    if (phase === 'burst' && pointsRef.current && lightRef.current) {
-        const pos = pointsRef.current.geometry.attributes.position.array;
-        lifeRef.current = Math.max(0, lifeRef.current - delta * 0.45); 
-        
-        lightRef.current.intensity = lifeRef.current * 8; 
-        
-        for (let i = 0; i < count; i++) {
-            pos[i * 3] += velocities[i * 3] * delta;
-            pos[i * 3 + 1] += (velocities[i * 3 + 1] * delta) - 2.5 * delta; 
-            pos[i * 3 + 2] += velocities[i * 3 + 2] * delta;
-            
-            velocities[i * 3] *= 0.92;
-            velocities[i * 3 + 1] *= 0.92;
-            velocities[i * 3 + 2] *= 0.92;
-        }
-        pointsRef.current.geometry.attributes.position.needsUpdate = true;
-        pointsRef.current.material.opacity = lifeRef.current * (0.5 + Math.sin(state.clock.elapsedTime * 20) * 0.5);
-
-        if (lifeRef.current <= 0) {
-            setPhase('idle');
-            setTimeout(launch, 3000 + Math.random() * 5000);
-        }
-    }
-  });
+  if (!transparentSrc) return null;
 
   return (
-    <group>
-      <pointLight ref={lightRef} color={color} distance={20} intensity={0} />
-      <points ref={pointsRef} visible={phase === 'burst'}>
-        <bufferGeometry><bufferAttribute attach="attributes-position" count={count} array={positions} itemSize={3} /></bufferGeometry>
-        <pointsMaterial map={flareTexture} size={0.5} transparent blending={THREE.AdditiveBlending} depthWrite={false} />
-      </points>
-    </group>
+    <motion.div
+      initial={{ opacity: 0, scale: 0.85, y: 30 }}
+      animate={{ opacity: 1, scale: 1, y: 0 }}
+      transition={{ delay: 2.2, duration: 2, ease: [0.16, 1, 0.3, 1] }}
+      style={{
+        margin: '0.6rem 0 2rem 0', position: 'relative', width: '100%',
+        display: 'flex', flexDirection: 'column', justifyContent: 'center', alignItems: 'center', perspective: '1000px'
+      }}
+    >
+      {/* Cinematic Glow Behind Cake Shape */}
+      <div style={{ position: 'absolute', width: '280px', height: '280px', background: 'radial-gradient(circle, rgba(255,215,0,0.1) 0%, transparent 70%)', top: '60%', left: '50%', transform: 'translate(-50%, -50%)', filter: 'blur(55px)' }} />
+
+      {/* 🎆 PREMIUM PERSONAL CELEBRATION (Now positioned relatively above cake) 🎆 */}
+      <motion.div
+        initial={{ opacity: 0, y: 20 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ delay: 3.5, duration: 1.5 }}
+        style={{
+          background: 'rgba(0,0,0,0.6)',
+          backdropFilter: 'blur(12px)',
+          padding: '15px 25px',
+          borderRadius: '24px',
+          border: '1.5px solid rgba(255,215,0,0.3)',
+          boxShadow: '0 10px 40px rgba(0,0,0,0.6), 0 0 20px rgba(255,215,0,0.15)',
+          textAlign: 'center',
+          marginBottom: '1rem',
+          width: '90%',
+          maxWidth: '320px',
+          zIndex: 100
+        }}
+      >
+        {/* Main Date & Message */}
+        <h2 style={{
+          fontFamily: '"Sacramento", cursive', fontSize: '28px', color: '#ffd700', margin: '0 0 8px 0',
+          textShadow: '0 0 10px rgba(255,215,0,0.5)'
+        }}>
+          01 June
+        </h2>
+
+        <p style={{
+          fontFamily: '"Cormorant Garamond", serif', fontSize: '15px', fontStyle: 'italic', color: '#ffffff',
+          lineHeight: 1.4, margin: 0, opacity: 0.9
+        }}>
+          "The most favorite day of my life,<br />
+          as it's your Birthday, meri jaan ❤️"
+        </p>
+      </motion.div>
+
+      {/* The Masterpiece Asset with 3D Parallax */}
+      <motion.div
+        animate={{
+          rotateX: mousePos.y * -12,
+          rotateY: mousePos.x * 15,
+          y: [0, -8, 0]
+        }}
+        transition={{
+          rotateX: { type: 'spring', damping: 25 }, rotateY: { type: 'spring', damping: 25 },
+          y: { duration: 5, repeat: Infinity, ease: 'easeInOut' }
+        }}
+        style={{
+          width: '90%', maxWidth: '280px', height: '35vh', minHeight: '220px', maxHeight: '350px', position: 'relative',
+          display: 'flex', justifyContent: 'center', alignItems: 'center'
+        }}
+      >
+        <img
+          src={transparentSrc}
+          alt="Princess Cake"
+          style={{
+            width: '120%', height: '120%', objectFit: 'contain',
+            filter: 'drop-shadow(0 20px 40px rgba(0,0,0,0.9)) saturate(1.1)'
+          }}
+        />
+      </motion.div>
+
+      {/* Atmospheric Particles */}
+      <div style={{ position: 'absolute', inset: 0, pointerEvents: 'none' }}>
+        {[...Array(20)].map((_, i) => (
+          <motion.div
+            key={i}
+            initial={{ opacity: 0, scale: 0 }}
+            animate={{ opacity: [0, 1, 0], scale: [0, 1, 0], y: [-10, -120], x: (Math.random() - 0.5) * 180 }}
+            transition={{ repeat: Infinity, duration: 4 + Math.random() * 2, delay: Math.random() * 4 }}
+            style={{ position: 'absolute', top: '80%', left: '50%', width: '2px', height: '2px', borderRadius: '50%', background: i % 2 === 0 ? '#ffd700' : '#f472b6' }}
+          />
+        ))}
+      </div>
+    </motion.div>
+  );
+};
+
+// ----------------------------------------------------------------------
+// 5. INK ON WATER REVEAL (Typography Component)
+// ----------------------------------------------------------------------
+const InkTextReveal = ({ text, delayOffset = 0 }) => {
+  const words = text.split(' ');
+  let charIdx = 0;
+
+  return (
+    <div style={{ display: 'flex', gap: '0.4rem', flexWrap: 'wrap', justifyContent: 'center' }}>
+      {words.map((word, wIdx) => (
+        <span key={wIdx} style={{ display: 'inline-flex', whiteSpace: 'nowrap' }}>
+          {word.split('').map((char, cIdx) => {
+            const delay = delayOffset + (charIdx++) * 0.08;
+            return (
+              <motion.span
+                key={cIdx}
+                initial={{ opacity: 0, filter: 'blur(10px)', y: 15 }}
+                animate={{ opacity: 1, filter: 'blur(0px)', y: 0 }}
+                transition={{ duration: 1.5, delay, ease: [0.22, 1, 0.36, 1] }}
+                style={{
+                  fontFamily: '"Cormorant Garamond", serif',
+                  fontSize: 'clamp(1rem, 4vw, 1.4rem)',
+                  letterSpacing: '0.2em',
+                  textTransform: 'uppercase',
+                  color: '#ffffff',
+                  textShadow: '0 2px 15px rgba(255,255,255,0.6)'
+                }}
+              >
+                {char}
+              </motion.span>
+            );
+          })}
+        </span>
+      ))}
+    </div>
   );
 };
 
@@ -390,192 +374,176 @@ const RealisticFirework = ({ color, startDelay, positionX }) => {
 // ----------------------------------------------------------------------
 const Act1Invitation = ({ onComplete }) => {
   const [isClicked, setClicked] = useState(false);
+  const [showSub, setShowSub] = useState(false);
 
   useEffect(() => {
-    if (isClicked) {
-      const timer = setTimeout(() => onComplete(), 2500);
-      return () => clearTimeout(timer);
-    }
-  }, [isClicked, onComplete]);
+    // Reveal the subtitle string after 3 seconds
+    const t = setTimeout(() => setShowSub(true), 3000);
 
-  const drawLine = {
-    hidden: { pathLength: 0, opacity: 0 },
-    visible: { pathLength: 1, opacity: 1, transition: { pathLength: { duration: 3, ease: "easeInOut" }, opacity: { duration: 1 } } }
-  };
+    // PRELOAD GARDEN TEXTURES for seamless transition
+    CONFIG.MEMORIES.forEach(m => {
+      const img = new Image();
+      img.src = m.image;
+    });
 
-  const letterAnimation = {
-    hidden: { opacity: 0, y: 15, filter: 'blur(8px)', scale: 0.8 },
-    visible: { opacity: 1, y: 0, filter: 'blur(0px)', scale: 1, transition: { duration: 1.5, ease: "easeOut" } }
-  };
+    return () => clearTimeout(t);
+  }, []);
 
   return (
-    <div 
-      onClick={() => setClicked(true)}
-      style={{ position: 'absolute', inset: 0, overflow: 'hidden', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', backgroundColor: '#010205' }}
-    >
-      {/* 3D SCENE */}
+    <div style={{ position: 'absolute', inset: 0, overflow: 'hidden', backgroundColor: '#020308' }}>
+
+      {/* ── BACKGROUND 3D SCENE ── */}
       <div style={{ position: 'absolute', inset: 0, zIndex: 0 }}>
-        <Canvas gl={{ alpha: true, antialias: true, powerPreference: "high-performance" }}>
+        <Canvas gl={{ alpha: false, antialias: true, powerPreference: "high-performance" }}>
+          <color attach="background" args={['#020308']} />
           <CinematicCameraRig />
-          
-          <ambientLight intensity={0.1} color="#4466ff" />
-          
-          <LivingAurora />
+          <LivingAurora fadeOutTarget={1} />
           <CinematicStars />
-          <RubyHearts />
-          <FallingSnow />
-          <CrystalRoseField isVisible={true} />
-          
-          {/* Intense Foreground Frost/Twinkle */}
-          <Sparkles count={200} scale={[30, 20, 10]} position={[0, 5, -2]} speed={2} size={4} opacity={0.8} color="#ffffff" />
-          
-          <RealisticFirework color="#00ffff" startDelay={1000} positionX={-8} />
-          <RealisticFirework color="#ff00ff" startDelay={3000} positionX={6} />
-          <RealisticFirework color="#FFD700" startDelay={4500} positionX={-3} />
-          <RealisticFirework color="#ff4444" startDelay={6500} positionX={4} />
-          
-          <EffectComposer disableNormalPass multisampling={4}>
-            <Bloom luminanceThreshold={0.1} mipmapBlur intensity={1.8} />
-            <Vignette eskil={false} offset={0.15} darkness={1.1} />
+          <StardustPath />
+
+          <EffectComposer disableNormalPass multisampling={0}>
+            <Bloom luminanceThreshold={0.1} mipmapBlur intensity={2.5} />
+            <Vignette eskil={false} offset={0.3} darkness={0.9} />
           </EffectComposer>
         </Canvas>
       </div>
 
-      <div style={{ position: 'absolute', inset: 0, zIndex: 1, background: 'radial-gradient(circle at center, rgba(0,0,0,0.1) 0%, rgba(1,2,5,0.85) 100%)', pointerEvents: 'none' }} />
+      {/* Deep Space Vignette Layer */}
+      <div style={{ position: 'absolute', inset: 0, zIndex: 1, background: 'radial-gradient(circle at center, transparent 0%, rgba(2,3,8,0.85) 100%)', pointerEvents: 'none' }} />
 
-      {/* CHOREOGRAPHY LAYER */}
-      <motion.div 
-        style={{ position: 'relative', zIndex: 10, width: '100%', height: '100%', pointerEvents: 'none', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center' }}
+      {/* ── TYPOGRAPHY & CHOREOGRAPHY (Foreground) ── */}
+      <motion.div
+        animate={{ opacity: 1 }}
+        transition={{ duration: 2 }}
+        style={{ position: 'relative', zIndex: 10, width: '100%', height: '100%', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center' }}
       >
-        
-        {/* Name: RITAM (SVG Draw) */}
-        <motion.div initial="hidden" animate="visible" transition={{ delay: 1 }} style={{ width: '280px', height: '80px', display: 'flex', justifyContent: 'center' }}>
-          <svg viewBox="0 0 300 100" fill="transparent">
-            <motion.path d="M30 90 C 30 50, 40 20, 70 20 C 100 20, 100 50, 70 60 C 50 65, 30 65, 30 65 L 80 100 M 110 90 L 110 30 M 140 30 L 140 90 C 140 100, 150 100, 160 90 M 130 50 L 160 50 M 190 90 C 170 90, 170 50, 190 50 C 210 50, 210 90, 210 90 M 200 70 L 180 70 M 230 90 L 230 50 C 230 30, 250 30, 250 50 L 250 90 M 250 65 C 250 30, 280 30, 280 50 L 280 90" stroke="#FFD700" strokeWidth="4" strokeLinecap="round" strokeLinejoin="round" variants={drawLine} style={{ filter: 'drop-shadow(0px 0px 20px rgba(255, 215, 0, 1))' }} />
-          </svg>
+
+        {/* Name Reveal (Golden Cursive) with Flowers */}
+        <motion.div
+          initial={{ opacity: 0, scale: 0.95, filter: 'blur(15px)' }}
+          animate={{ opacity: 1, scale: 1, filter: 'blur(0px)' }}
+          transition={{ duration: 3, delay: 0.5, ease: "easeInOut" }}
+          style={{ marginBottom: '0', marginTop: '3rem', textAlign: 'center', position: 'relative' }}
+        >
+          {/* Flower Burst Particles */}
+          <div style={{ position: 'absolute', inset: 0, pointerEvents: 'none', zIndex: -1 }}>
+            {[...Array(12)].map((_, i) => (
+              <motion.span
+                key={i}
+                initial={{ opacity: 0, scale: 0, y: 0, x: 0 }}
+                animate={{
+                  opacity: [0, 0.7, 0],
+                  scale: [0, 1.2, 0.8],
+                  y: [-20, -80 - Math.random() * 50],
+                  x: [(Math.random() - 0.5) * 150, (Math.random() - 0.5) * 300],
+                  rotate: [0, 360]
+                }}
+                transition={{
+                  duration: 4 + Math.random() * 3,
+                  repeat: Infinity,
+                  delay: Math.random() * 5,
+                  ease: "easeOut"
+                }}
+                style={{ position: 'absolute', left: '50%', top: '50%', fontSize: '14px' }}
+              >
+                {['🌸', '🌺', '✨', '🌸'][i % 4]}
+              </motion.span>
+            ))}
+          </div>
+
+          <h1 style={{
+            fontFamily: '"Sacramento", cursive',
+            fontSize: 'clamp(2.5rem, 12vw, 5.5rem)',
+            margin: 0,
+            lineHeight: 1,
+            background: `linear-gradient(135deg, #ffd700 0%, #f7e7ce 35%, #ffd700 65%, #f7e7ce 100%)`,
+            backgroundSize: '200% 200%',
+            animation: 'goldShimmer 4s ease-in-out infinite',
+            WebkitBackgroundClip: 'text',
+            WebkitTextFillColor: 'transparent',
+            filter: `drop-shadow(0 0 30px rgba(255, 215, 0, 0.4))`
+          }}>
+            {CONFIG.NAME}
+          </h1>
         </motion.div>
 
-        {/* MASTERPIECE CAKE 2.0 (Gradients & Frosting) */}
-        <motion.div 
-          initial="hidden" 
-          animate="visible" 
-          style={{ marginTop: '1rem', display: 'flex', justifyContent: 'center', alignItems: 'flex-end', height: '110px' }}
-        >
-          <svg width="120" height="120" viewBox="0 0 100 100" fill="transparent">
-            <defs>
-              <linearGradient id="bottomTierGrad" x1="0%" y1="0%" x2="0%" y2="100%">
-                <stop offset="0%" style={{ stopColor: '#ff4477' }} />
-                <stop offset="100%" style={{ stopColor: '#882233' }} />
-              </linearGradient>
-              <linearGradient id="topTierGrad" x1="0%" y1="0%" x2="0%" y2="100%">
-                <stop offset="0%" style={{ stopColor: '#FFD700' }} />
-                <stop offset="100%" style={{ stopColor: '#b8860b' }} />
-              </linearGradient>
-              <filter id="glow">
-                <feGaussianBlur stdDeviation="1.5" result="coloredBlur"/>
-                <feMerge>
-                  <feMergeNode in="coloredBlur"/><feMergeNode in="SourceGraphic"/>
-                </feMerge>
-              </filter>
-            </defs>
+        {/* Premium Re-added Cake */}
+        <PremiumCake />
 
-            {/* Plate */}
-            <motion.ellipse cx="50" cy="92" rx="38" ry="6" stroke="#FFD700" strokeWidth="1.5" 
-              initial={{ opacity: 0, scale: 0 }} animate={{ opacity: 1, scale: 1 }} transition={{ delay: 3, type: "spring" }} />
-            
-            {/* Bottom Tier (Ruby Velvet) */}
-            <motion.path d="M 22 90 L 22 62 Q 50 68 78 62 L 78 90 Q 50 96 22 90" fill="url(#bottomTierGrad)" 
-              initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 3.3, type: "spring", stiffness: 100 }} />
-            
-            {/* Bottom Frosting */}
-            <motion.path d="M 22 62 Q 28 58 34 62 Q 40 66 46 62 Q 52 58 58 62 Q 64 66 70 62 Q 76 58 78 62" stroke="white" strokeWidth="2.5" strokeLinecap="round"
-              initial={{ pathLength: 0 }} animate={{ pathLength: 1 }} transition={{ delay: 3.8, duration: 0.8 }} />
+        {/* Happy Birthday Subtitle (Ink on Water) */}
+        <AnimatePresence>
+          {showSub && (
+            <div style={{ marginTop: '2rem', marginBottom: '4rem', padding: '0 20px', maxWidth: '100%', textAlign: 'center' }}>
+              <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '15px' }}>
+                {/* Single Line Text */}
+                <div style={{ width: '100%' }}>
+                  <InkTextReveal text="HAPPY BIRTHDAY SWEETHEART" delayOffset={0} />
+                </div>
 
-            {/* Bottom Sprinkles */}
-            {[ {x:32,y:75,c:'#44ffff'}, {x:45,y:82,c:'#ffff44'}, {x:60,y:72,c:'#ff99ff'}, {x:70,y:80,c:'#55ff55'} ].map((s,i) => (
-              <motion.circle key={i} cx={s.x} cy={s.y} r="2.5" fill={s.c} 
-                initial={{ opacity: 0, scale: 0 }} animate={{ opacity: 0.8, scale: 1 }} transition={{ delay: 4.5 + i*0.1 }} />
-            ))}
-
-            {/* Top Tier (Lunar Gold) */}
-            <motion.path d="M 32 62 L 32 42 Q 50 48 68 42 L 68 62 Q 50 68 32 62" fill="url(#topTierGrad)" 
-              initial={{ opacity: 0, y: 15 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 4.0, type: "spring", stiffness: 100 }} />
-            
-            {/* Top Frosting */}
-            <motion.path d="M 32 42 Q 36 38 42 42 Q 48 46 54 42 Q 60 38 66 42 Q 68 42 68 42" stroke="white" strokeWidth="2.5" strokeLinecap="round"
-              initial={{ pathLength: 0 }} animate={{ pathLength: 1 }} transition={{ delay: 4.4, duration: 0.8 }} />
-            
-            {/* Top Sprinkles */}
-            {[ {x:40,y:52,c:'#ff4444'}, {x:50,y:58,c:'#4488ff'}, {x:60,y:50,c:'#ffffff'} ].map((s,i) => (
-              <motion.circle key={i} cx={s.x} cy={s.y} r="2" fill={s.c} 
-                initial={{ opacity: 0, scale: 0 }} animate={{ opacity: 0.8, scale: 1 }} transition={{ delay: 4.8 + i*0.1 }} />
-            ))}
-
-            {/* Pink Candle */}
-            <motion.rect x="48" y="27" width="4" height="15" rx="1" fill="#ff66aa" 
-              initial={{ scaleY: 0 }} animate={{ scaleY: 1 }} transition={{ delay: 5.2, type: "spring" }} />
-            
-            {/* The Flame */}
-            <motion.path 
-              d="M 50 24 C 47 18, 50 8, 50 8 C 50 8, 53 18, 50 24 Z" 
-              fill="#ffffff" filter="url(#glow)"
-              initial={{ opacity: 0, scale: 0 }}
-              animate={{ opacity: [0, 1, 0.8, 1], scale: [0, 1.2, 0.9, 1.1] }}
-              transition={{ delay: 5.6, duration: 1.2, repeat: Infinity, repeatType: "mirror" }}
-            />
-          </svg>
-        </motion.div>
-
-        {/* STAGGERED REVEAL: HAPPY BIRTHDAY FIANCÉE */}
-        <motion.div 
-          initial="hidden" 
-          animate="visible" 
-          transition={{ staggerChildren: 0.15, delayChildren: 4 }} 
-          style={{ marginTop: '2.5rem', display: 'flex', justifyContent: 'center', gap: '0.8rem', flexWrap: 'wrap', maxWidth: '400px' }}
-        >
-          {["HAPPY", "BIRTHDAY", "FIANCÉE"].map((word, wordIndex) => (
-            <div key={wordIndex} style={{ display: 'flex', gap: '3px' }}>
-              {word.split("").map((char, charIndex) => (
-                <motion.span 
-                  key={charIndex} 
-                  variants={letterAnimation}
-                  style={{ 
-                    color: '#ffffff', 
-                    fontFamily: 'serif', 
-                    fontSize: '1.4rem', 
-                    letterSpacing: '0.15em', 
-                    textShadow: '0 0 15px rgba(255, 215, 0, 0.9), 0 0 30px rgba(255, 255, 255, 0.5)',
+                {/* Booming Heart Below */}
+                <motion.div
+                  initial={{ scale: 0, opacity: 0 }}
+                  animate={{
+                    scale: [1, 1.6, 1],
+                    opacity: [0.8, 1, 0.8],
+                    filter: ['drop-shadow(0 0 5px #ff0000)', 'drop-shadow(0 0 20px #ff0000)', 'drop-shadow(0 0 5px #ff0000)']
                   }}
+                  transition={{
+                    scale: { repeat: Infinity, duration: 0.8, ease: "easeInOut" },
+                    opacity: { repeat: Infinity, duration: 0.8 },
+                    delay: 2.5 // Appear after text starts
+                  }}
+                  style={{ fontSize: '32px', cursor: 'default' }}
                 >
-                  {char}
-                </motion.span>
-              ))}
+                  ❤️
+                </motion.div>
+              </div>
             </div>
-          ))}
-        </motion.div>
+          )}
+        </AnimatePresence>
 
-        {/* Navigational Affordance */}
-        <motion.div 
-          initial={{ opacity: 0, y: 20 }} 
-          animate={{ opacity: isClicked ? 0 : 1, y: 0 }} 
-          transition={{ duration: 1.5, delay: 9 }} 
-          style={{ position: 'absolute', bottom: '4rem', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '0.5rem' }}
+        <motion.div
+          onClick={() => onComplete()}
+          initial={{ opacity: 0, x: 20 }}
+          animate={{ opacity: 1, x: 0 }}
+          transition={{ duration: 1.5, delay: 6 }}
+          style={{
+            position: 'absolute',
+            top: '1.2rem',
+            right: '1rem',
+            display: 'flex',
+            alignItems: 'center',
+            gap: '0.5rem',
+            cursor: 'pointer',
+            zIndex: 150,
+            padding: '8px 14px',
+            background: 'rgba(0,0,0,0.6)',
+            backdropFilter: 'blur(12px)',
+            borderRadius: '20px',
+            border: '1px solid rgba(255,215,0,0.3)',
+            boxShadow: '0 4px 15px rgba(0,0,0,0.5)'
+          }}
+          whileHover={{ scale: 1.05, borderColor: 'rgba(255,215,0,0.8)' }}
+          whileTap={{ scale: 0.95 }}
         >
-          <motion.div animate={{ y: [0, 8, 0], opacity: [0.5, 1, 0.5] }} transition={{ duration: 2.5, repeat: Infinity, ease: "easeInOut" }}>
-            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#FFD700" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" style={{ filter: 'drop-shadow(0px 0px 8px rgba(255,215,0,1))' }}>
-              <path d="M7 13l5 5 5-5M7 6l5 5 5-5" />
+          <span style={{
+            fontFamily: 'system-ui, sans-serif', letterSpacing: '0.15em', fontSize: '10px', color: '#FFD700',
+            textTransform: 'uppercase', fontWeight: 700,
+            whiteSpace: 'nowrap'
+          }}>
+            Next
+          </span>
+          <motion.div animate={{ x: [0, 3, 0] }} transition={{ duration: 2, repeat: Infinity, ease: "easeInOut" }}>
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#FFD700" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M5 12h14M12 5l7 7-7 7" />
             </svg>
           </motion.div>
-          <svg width="280" height="20" viewBox="0 0 280 20" fill="transparent">
-             <text x="50%" y="15" textAnchor="middle" fill="#FFD700" style={{ letterSpacing: '0.25em', fontSize: '11px', fontWeight: 'lighter', textTransform: 'uppercase', filter: 'drop-shadow(0px 0px 5px rgba(255,215,0,0.8))' }}>
-               Start our story together
-             </text>
-          </svg>
         </motion.div>
       </motion.div>
 
-      {isClicked && <div style={{ position: 'absolute', inset: 0, backgroundColor: '#fff', zIndex: 50, animation: 'fadeToWhite 2.5s forwards ease-in-out' }} />}
-      <style>{`@keyframes fadeToWhite { 0% { opacity: 0; } 100% { opacity: 1; } }`}</style>
+      <style>{`
+        @keyframes goldShimmer { 0% { background-position: 0% 50%; } 50% { background-position: 100% 50%; } 100% { background-position: 0% 50%; } }
+      `}</style>
     </div>
   );
 };

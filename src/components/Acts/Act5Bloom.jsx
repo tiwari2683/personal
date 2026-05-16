@@ -84,7 +84,7 @@ const Act5Bloom = ({ name, lastName }) => {
               anchorX="center"
               anchorY="middle"
               letterSpacing={0.1}
-              font="https://cdn.jsdelivr.net/gh/google/fonts@main/ofl/cormorantgaramond/CormorantGaramond-Italic.ttf"
+              // Font prop removed to prevent loading errors
             >
               Happy Birthday, {name} {lastName}
             </Text>
@@ -96,7 +96,7 @@ const Act5Bloom = ({ name, lastName }) => {
                 fontSize={0.2} 
                 color={CONFIG.COLOR.SECONDARY} 
                 opacity={0.8}
-                font="https://cdn.jsdelivr.net/gh/google/fonts@main/ofl/cormorantgaramond/CormorantGaramond-Italic.ttf"
+                // Font prop removed to prevent loading errors
             >
                 MY FOREVER PRINCESS
             </Text>

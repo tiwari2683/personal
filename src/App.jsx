@@ -23,38 +23,38 @@ const AnimatedRoutes = ({ tilt }) => {
   return (
     <AnimatePresence mode="wait">
       <Routes location={location} key={location.pathname}>
-        
+
         {/* ACT 1: THE INVITATION */}
         <Route path="/" element={
-          <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} transition={{ duration: 1.5 }} style={{ width: '100%', height: '100%' }}>
+          <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} transition={{ duration: 0.4 }} style={{ width: '100%', height: '100%' }}>
             <Act1Invitation onComplete={() => navigate('/garden')} tilt={tilt} />
           </motion.div>
         } />
 
         {/* ACT 2: THE MEMORY GARDEN */}
         <Route path="/garden" element={
-          <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} transition={{ duration: 1.5 }} style={{ width: '100%', height: '100%' }}>
+          <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} transition={{ duration: 0.4 }} style={{ width: '100%', height: '100%' }}>
             <Act2MemoryGarden onComplete={() => navigate('/letter')} tilt={tilt} />
           </motion.div>
         } />
 
         {/* ACT 3: THE LOVE LETTER */}
         <Route path="/letter" element={
-          <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} transition={{ duration: 1.5 }} style={{ width: '100%', height: '100%' }}>
+          <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} transition={{ duration: 0.4 }} style={{ width: '100%', height: '100%' }}>
             <Act3LoveLetter onComplete={() => navigate('/proposal')} />
           </motion.div>
         } />
 
-        {/* ACT 4: THE QUESTION */}
+        {/* ACT 4: THE QUESTION (Now the Final Act) */}
         <Route path="/proposal" element={
-          <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} transition={{ duration: 1.5 }} style={{ width: '100%', height: '100%' }}>
-            <Act4Question onComplete={() => navigate('/bloom')} tilt={tilt} />
+          <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} transition={{ duration: 0.4 }} style={{ width: '100%', height: '100%' }}>
+            <Act4Question onComplete={() => navigate('/')} tilt={tilt} />
           </motion.div>
         } />
 
         {/* ACT 5: THE BLOOM */}
         <Route path="/bloom" element={
-          <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} transition={{ duration: 1.5 }} style={{ width: '100%', height: '100%' }}>
+          <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} transition={{ duration: 0.4 }} style={{ width: '100%', height: '100%' }}>
             <Act5Bloom name={CONFIG.NAME} lastName={CONFIG.FUTURE_LAST_NAME} />
           </motion.div>
         } />
@@ -81,9 +81,9 @@ function App() {
   useEffect(() => {
     const handleMotion = (e) => {
       if (e.beta && e.gamma) {
-        setTilt({ 
-          x: (e.beta - 45) / 45, 
-          y: e.gamma / 45 
+        setTilt({
+          x: (e.beta - 45) / 45,
+          y: e.gamma / 45
         });
       }
     };
@@ -93,28 +93,24 @@ function App() {
 
   return (
     <Router future={{ v7_startTransition: true, v7_relativeSplatPath: true }}>
-      <div 
-        className="fixed inset-0 overflow-hidden" 
-        style={{ backgroundColor: 'black', width: '100vw', height: '100vh', position: 'fixed', top: 0, left: 0 }}
+      <div
+        className="fixed inset-0 overflow-hidden"
+        style={{ backgroundColor: 'black', position: 'fixed', top: 0, left: 0, right: 0, bottom: 0 }}
       >
         <SparkleCursor />
-        <Suspense fallback={
-          <div style={{ position: 'fixed', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'white', backgroundColor: 'black' }}>
-            <p style={{ letterSpacing: '0.3em', textTransform: 'uppercase', fontSize: '0.75rem', opacity: 0.5 }}>Loading her world...</p>
-          </div>
-        }>
+        <Suspense fallback={<div style={{ position: 'fixed', inset: 0, backgroundColor: '#0a0816' }} />}>
           <AnimatedRoutes tilt={tilt} />
         </Suspense>
 
         {/* AUDIO GESTURE OVERLAY (Princess Safety) */}
         {!isAudioInitialized && (
-          <div 
+          <div
             onClick={handleStart}
-            style={{ 
-              position: 'fixed', 
-              inset: 0, 
-              zIndex: 9999, 
-              backgroundColor: 'rgba(0,0,0,0.01)', 
+            style={{
+              position: 'fixed',
+              inset: 0,
+              zIndex: 9999,
+              backgroundColor: 'rgba(0,0,0,0.01)',
               pointerEvents: 'auto',
               cursor: 'pointer'
             }}
