@@ -21,7 +21,7 @@ const G = {
   blush: '#f8bbd0',
 };
 
-const safePlay = () => {};
+const safePlay = () => { };
 
 
 
@@ -915,7 +915,7 @@ const Act4Question = ({ onComplete }) => {
       {/* ── LAYER 5: Foreground UI Compositor ── */}
       <div style={{
         position: 'absolute', inset: 0, zIndex: 50, display: 'flex', flexDirection: 'column',
-        alignItems: 'center', justifyContent: 'flex-start', gap: '0.2rem', padding: '10dvh 20px 0 20px' 
+        alignItems: 'center', justifyContent: 'flex-start', gap: '0.2rem', padding: '10dvh 20px 0 20px'
       }}>
 
         {/* Proposal Info */}
@@ -1027,7 +1027,7 @@ const Act4Question = ({ onComplete }) => {
                   filter: `drop-shadow(0 0 15px ${G.gold}88)`, margin: 0, textAlign: 'center'
                 }}
               >
-                She said YES! 🎉
+                Thank You For Always choosing me my love🎉
               </motion.h2>
 
               <motion.div
@@ -1047,8 +1047,7 @@ const Act4Question = ({ onComplete }) => {
                   fontFamily: '"Cormorant Garamond", serif', fontSize: '1.1rem', color: G.champagne,
                   maxWidth: '320px', textAlign: 'center', marginTop: '1.2rem', lineHeight: 1.6, opacity: 0.9
                 }}>
-                  The universe witnessed your love.<br />
-                  <span style={{ fontStyle: 'italic' }}>A new journey begins, hand in hand.</span>
+
                 </p>
               </motion.div>
 
